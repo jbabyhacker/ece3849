@@ -33,10 +33,10 @@
 //Defines
 #define BUTTON_CLOCK 200 // button scanning interrupt rate in Hz
 #define M_PI 3.14159265358979323846f // Mathematical constant pi
-#define DIGITAL_CLOCK // comment this out to enable analog clock
 // Globals
 unsigned long g_ulSystemClock; // system clock frequency in Hz
 volatile unsigned long g_ulTime = 0; // time in hundredths of a second
+volatile unsigned char g_clockSelect = 1; // switch between analog and digital clock display
 
 //Structures
 typedef struct {
@@ -46,6 +46,7 @@ typedef struct {
 
 /**
  * Timer 0 interrupt service routine
+ * Adapted from Lab 0 handout by Professor Gene Bogdanov
  */
 void TimerISR(void) {
 	static int tic = false;
@@ -70,11 +71,11 @@ void TimerISR(void) {
 		g_ulTime = 0; // reset clock time to 0
 	}
 
-	if (presses & 4) { // "Down" button pressed
-		g_ulTime = 0; // reset clock time to 0
+	if (presses & 4) { // "Left" button pressed
+		g_clockSelect = !g_clockSelect; // switch clock display
 	}
 
-	if (presses & 8) { // "Left" button pressed
+	if (presses & 8) { // "Down" button pressed
 		g_ulTime = 0; // reset clock time to 0
 	}
 
@@ -92,6 +93,7 @@ void TimerISR(void) {
 }
 /**
  * Configures timer to update at 200HZ
+ * Obtained from Lab 0 handout by Professor Gene Bogdanov
  */
 void timerSetup(void) {
 	unsigned long ulDivider, ulPrescaler;
@@ -115,6 +117,7 @@ void timerSetup(void) {
 
 /**
  * Configures "select", "up", "down", "left", "right" buttons for input
+ * Adapted from Lab 0 handout by Professor Gene Bogdanov
  */
 void buttonSetup(void) {
 	// configure GPIO used to read the state of the on-board push buttons
@@ -145,6 +148,9 @@ Point calcCoord(unsigned short radius, float angle) {
 	return p;
 }
 
+/**
+ * Adapted from Lab 0 handout by Professor Gene Bogdanov
+ */
 int main(void) {
 	char pcStr[50]; // string buffer
 	unsigned long ulTime; // local copy of g_ulTime
@@ -162,7 +168,7 @@ int main(void) {
 	unsigned short j;
 	for (j = 0; j < 60; j++) {
 		points[j] = calcCoord(radius - 6,
-				M_PI * 2.0f * (float) j * 6.0f / 360.0f);
+				M_PI * 2.0f * (float) (j-15) * 6.0f / 360.0f);
 		points[j].x += offsetX; // offsets to center drawing
 		points[j].y += offsetY;
 	}
@@ -191,22 +197,25 @@ int main(void) {
 		seconds = (ulTime / 100) % 60; // seconds
 		minutes = (ulTime / 100) / 60; // minutes
 
-#ifdef DIGITAL_CLOCK
-		usprintf(pcStr, "Time = %02u:%02u:%02u", minutes, seconds,
-				centiseconds); // convert time to string
-		DrawString(0, 0, pcStr, 15, false); // draw string to frame buffer
-#else
-		DrawCircle(offsetX, offsetY, radius, 15); // draw clock circle
-		short i;
-		unsigned level = 15;
-		for (i = 0; i < 60; i++) {
-			level = i % 5 == 0 ? 15 : 10; // make every 5th point darker
-			DrawPoint(points[i].x, points[i].y, level); // draw clock tick marks
+		if (g_clockSelect) {
+			usprintf(pcStr, "Time = %02u:%02u:%02u", minutes, seconds,
+					centiseconds); // convert time to string
+			DrawString(0, 0, pcStr, 15, false); // draw string to frame buffer
+		} else {
+			DrawCircle(offsetX, offsetY, radius, 15); // draw clock circle
+			short i;
+			unsigned level = 15;
+			for (i = 0; i < 60; i++) {
+				level = i % 5 == 0 ? 15 : 10; // make every 5th point darker
+				DrawPoint(points[i].x, points[i].y, level); // draw clock tick marks
+			}
+
+			DrawLine(offsetX, offsetY, points[seconds].x, points[seconds].y,
+					15); // draw seconds hand
+			DrawLine(offsetX, offsetY, points[minutes].x, points[minutes].y,
+					10); // draw minutes hand
 		}
 
-		DrawLine(offsetX, offsetY, points[seconds].x, points[seconds].y, 15); // draw seconds hand
-		DrawLine(offsetX, offsetY, points[minutes].x, points[minutes].y, 10); // draw minutes hand
-#endif
 		// copy frame to the OLED screen
 		RIT128x96x4ImageDraw(g_pucFrame, 0, 0, FRAME_SIZE_X, FRAME_SIZE_Y);
 	}
