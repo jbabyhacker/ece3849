@@ -14,6 +14,9 @@
 #include "inc/lm3s8962.h"
 #include "driverlib/sysctl.h"
 
+//Includes for ADC
+#include "driverlib/adc.h"
+
 //Includes for OLED
 #include "drivers/rit128x96x4.h"
 #include "frame_graphics.h"
@@ -33,10 +36,15 @@
 //Defines
 #define BUTTON_CLOCK 200 // button scanning interrupt rate in Hz
 #define M_PI 3.14159265358979323846f // Mathematical constant pi
+#define ADC_BUFFER_SIZE 2048 // must be a power of 2
+#define ADC_BUFFER_WRAP(i) ((i) & (ADC_BUFFER_SIZE - 1)) // index wrapping macro
 // Globals
 unsigned long g_ulSystemClock; // system clock frequency in Hz
 volatile unsigned long g_ulTime = 0; // time in hundredths of a second
 volatile unsigned char g_clockSelect = 1; // switch between analog and digital clock display
+volatile int g_iADCBufferIndex = ADC_BUFFER_SIZE - 1;  // latest sample index
+volatile unsigned short g_pusADCBuffer[ADC_BUFFER_SIZE]; // circular buffer
+volatile unsigned long g_ulADCErrors = 0; // number of missed ADC deadlines
 
 //Structures
 typedef struct {
@@ -91,6 +99,23 @@ void TimerISR(void) {
 			tic = true;
 	}
 }
+
+void ADC_ISR(void) {
+	ADC_ISC_R &= ADC_ISC_IN0; // clear ADC sequence0 interrupt flag in the ADCISC register
+	if (ADC0_OSTAT_R & ADC_OSTAT_OV0) { // check for ADC FIFO overflow
+		g_ulADCErrors++; // count errors - step 1 of the signoff
+		ADC0_OSTAT_R = ADC_OSTAT_OV0; // clear overflow condition
+	}
+	int buffer_index = ADC_BUFFER_WRAP(g_iADCBufferIndex + 1);
+
+	while (!(ADC_SSFSTAT0_R & ADC_SSFSTAT0_EMPTY)) {
+		g_pusADCBuffer[buffer_index] = ADC_SSFIFO0_R & ADC_SSFIFO0_DATA_M; // read sample from the ADC sequence0 FIFO
+		buffer_index++;
+	}
+
+	g_iADCBufferIndex = buffer_index;
+}
+
 /**
  * Configures timer to update at 200HZ
  * Obtained from Lab 0 handout by Professor Gene Bogdanov
@@ -137,6 +162,19 @@ void buttonSetup(void) {
 			GPIO_STRENGTH_2MA, GPIO_PIN_TYPE_STD_WPU);
 }
 
+void adcSetup(void) {
+	SysCtlPeripheralEnable(SYSCTL_PERIPH_ADC0); // enable the ADC
+	SysCtlADCSpeedSet(SYSCTL_ADCSPEED_500KSPS); // specify 500ksps
+	ADCSequenceDisable(0, 0); // choose ADC sequence 0; disable before configuring
+	ADCSequenceConfigure(0, 0, ADC_TRIGGER_ALWAYS, 0); // specify the "Always" trigger
+	ADCSequenceStepConfigure(0, 0, 0, ADC_CTL_CH0); // in the 0th step, sample channel 0
+	// enable interrupt, and make it the end of sequence
+	ADCIntEnable(INT_ADC0, 0); // enable ADC interrupt from sequence 0
+	ADCSequenceEnable(0, 0); // enable the sequence. it is now sampling
+	IntPrioritySet(INT_ADC0, 0); // 0 = highest priority
+	IntEnable(INT_ADC0); // enable ADC0 interrupts
+}
+
 /**
  * Computes the cartesian coordinate of the seconds
  * for the analog clock given the radius and angle
@@ -168,7 +206,7 @@ int main(void) {
 	unsigned short j;
 	for (j = 0; j < 60; j++) {
 		points[j] = calcCoord(radius - 6,
-				M_PI * 2.0f * (float) (j-15) * 6.0f / 360.0f);
+				M_PI * 2.0f * (float) (j - 15) * 6.0f / 360.0f);
 		points[j].x += offsetX; // offsets to center drawing
 		points[j].y += offsetY;
 	}
