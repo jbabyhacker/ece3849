@@ -101,7 +101,7 @@ void TimerISR(void) {
 }
 
 void ADC_ISR(void) {
-	ADC_ISC_R &= ADC_ISC_IN0; // clear ADC sequence0 interrupt flag in the ADCISC register
+	ADC_ISC_R = ADC_ISC_IN0; // clear ADC sequence0 interrupt flag in the ADCISC register
 	if (ADC0_OSTAT_R & ADC_OSTAT_OV0) { // check for ADC FIFO overflow
 		g_ulADCErrors++; // count errors - step 1 of the signoff
 		ADC0_OSTAT_R = ADC_OSTAT_OV0; // clear overflow condition
@@ -135,9 +135,8 @@ void timerSetup(void) {
 	TimerIntEnable(TIMER0_BASE, TIMER_TIMA_TIMEOUT);
 	TimerEnable(TIMER0_BASE, TIMER_A);
 	// initialize interrupt controller to respond to timer interrupts
-	IntPrioritySet(INT_TIMER0A, 0); // 0 = highest priority, 32 = next lower
+	IntPrioritySet(INT_TIMER0A, 32); // 0 = highest priority, 32 = next lower
 	IntEnable(INT_TIMER0A);
-	IntMasterEnable();
 }
 
 /**
@@ -165,15 +164,28 @@ void buttonSetup(void) {
 void adcSetup(void) {
 	SysCtlPeripheralEnable(SYSCTL_PERIPH_ADC0); // enable the ADC
 	SysCtlADCSpeedSet(SYSCTL_ADCSPEED_500KSPS); // specify 500ksps
-	ADCSequenceDisable(0, 0); // choose ADC sequence 0; disable before configuring
-	ADCSequenceConfigure(0, 0, ADC_TRIGGER_ALWAYS, 0); // specify the "Always" trigger
-	ADCSequenceStepConfigure(0, 0, 0, ADC_CTL_CH0); // in the 0th step, sample channel 0
+	ADCSequenceDisable(ADC0_BASE, 0); // choose ADC sequence 0; disable before configuring
+	ADCSequenceConfigure(ADC0_BASE, 0, ADC_TRIGGER_ALWAYS, 0); // specify the "Always" trigger
+	ADCSequenceStepConfigure(ADC0_BASE, 0, 0,
+			ADC_CTL_IE | ADC_CTL_END | ADC_CTL_CH0); // in the 0th step, sample channel 0
 	// enable interrupt, and make it the end of sequence
-	ADCIntEnable(INT_ADC0, 0); // enable ADC interrupt from sequence 0
-	ADCSequenceEnable(0, 0); // enable the sequence. it is now sampling
-	IntPrioritySet(INT_ADC0, 0); // 0 = highest priority
-	IntEnable(INT_ADC0); // enable ADC0 interrupts
+	ADCIntEnable(ADC0_BASE, 0); // enable ADC interrupt from sequence 0
+	ADCSequenceEnable(ADC0_BASE, 0); // enable the sequence. it is now sampling
+	IntPrioritySet(INT_ADC0SS0, 0); // 0 = highest priority
+	IntEnable(INT_ADC0SS0); // enable ADC0 interrupts
 }
+
+//void adcSetupHex(void) {
+//	SYSCTL_RCGC0_R |= SYSCTL_RCGC0_ADC;
+////	ADC_SSPRI_R |=
+//	ADC_ACTSS_R &= ~ADC_ACTSS_ASEN0;
+//	ADC_EMUX_R |= ADC_EMUX_EM0_ALWAYS;
+//	ADC_SSMUX0_R |= (ADC_SSMUX0_MUX0_M | ADC_SSMUX0_MUX1_M | ADC_SSMUX0_MUX2_M
+//			| ADC_SSMUX0_MUX3_M | ADC_SSMUX0_MUX4_M | ADC_SSMUX0_MUX5_M
+//			| ADC_SSMUX0_MUX6_M | ADC_SSMUX0_MUX7_M);
+//	ADC_SSCTL0_R
+//
+//}
 
 /**
  * Computes the cartesian coordinate of the seconds
@@ -226,6 +238,8 @@ int main(void) {
 
 	buttonSetup(); // configure buttons
 	timerSetup(); // configure timer
+	adcSetup(); // configure ADC
+	IntMasterEnable();
 
 	while (true) {
 		FillFrame(0); // clear frame buffer
