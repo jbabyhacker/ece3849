@@ -107,12 +107,7 @@ void ADC_ISR(void) {
 		ADC0_OSTAT_R = ADC_OSTAT_OV0; // clear overflow condition
 	}
 	int buffer_index = ADC_BUFFER_WRAP(g_iADCBufferIndex + 1);
-
-	while (!(ADC_SSFSTAT0_R & ADC_SSFSTAT0_EMPTY)) {
-		g_pusADCBuffer[buffer_index] = ADC_SSFIFO0_R & ADC_SSFIFO0_DATA_M; // read sample from the ADC sequence0 FIFO
-		buffer_index++;
-	}
-
+	g_pusADCBuffer[buffer_index] = ADC_SSFIFO0_R & ADC_SSFIFO0_DATA_M; // read sample from the ADC sequence0 FIFO
 	g_iADCBufferIndex = buffer_index;
 }
 
