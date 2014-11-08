@@ -1,0 +1,61 @@
+/*
+ * main.h
+ *
+ *  Created on: Nov 7, 2014
+ *      Author: Nicholas
+ */
+
+#ifndef MAIN_H_
+#define MAIN_H_
+
+// Includes from TI qs_eklm3s8962
+#include "inc/hw_types.h"
+#include "inc/hw_ints.h"
+#include "inc/hw_memmap.h"
+#include "inc/hw_sysctl.h"
+#include "inc/lm3s8962.h"
+#include "driverlib/sysctl.h"
+
+//Includes for ADC
+#include "driverlib/adc.h"
+
+//Includes for OLED
+#include "drivers/rit128x96x4.h"
+#include "frame_graphics.h"
+#include "utils/ustdlib.h"
+
+//Includes for timer
+#include "driverlib/timer.h"
+#include "driverlib/interrupt.h"
+
+//Includes for buttons
+#include "driverlib/gpio.h"
+#include "buttons.h"
+
+//Includes for analog clock sin() and cos()
+#include "math.h"
+
+//Defines
+#define BUTTON_CLOCK 200 // button scanning interrupt rate in Hz
+#define M_PI 3.14159265358979323846f // Mathematical constant pi
+#define ADC_BUFFER_SIZE 2048 // must be a power of 2
+#define ADC_BUFFER_WRAP(i) ((i) & (ADC_BUFFER_SIZE - 1)) // index wrapping macro
+#define SCREEN_WIDTH 200 // width of OLED screen in pixels
+
+
+// Globals
+unsigned long g_ulSystemClock; // system clock frequency in Hz
+volatile unsigned long g_ulTime = 0; // time in hundredths of a second
+volatile unsigned char g_clockSelect = 1; // switch between analog and digital clock display
+volatile int g_iADCBufferIndex = ADC_BUFFER_SIZE - 1;  // latest sample index
+volatile unsigned short g_pusADCBuffer[ADC_BUFFER_SIZE]; // circular buffer
+volatile unsigned long g_ulADCErrors = 0; // number of missed ADC deadlines
+
+//Structures
+typedef struct {
+	short x;
+	short y;
+} Point;
+
+
+#endif /* MAIN_H_ */

@@ -6,51 +6,7 @@
  * ECE 3829 Lab 0
  */
 
-// Includes from TI qs_eklm3s8962
-#include "inc/hw_types.h"
-#include "inc/hw_ints.h"
-#include "inc/hw_memmap.h"
-#include "inc/hw_sysctl.h"
-#include "inc/lm3s8962.h"
-#include "driverlib/sysctl.h"
-
-//Includes for ADC
-#include "driverlib/adc.h"
-
-//Includes for OLED
-#include "drivers/rit128x96x4.h"
-#include "frame_graphics.h"
-#include "utils/ustdlib.h"
-
-//Includes for timer
-#include "driverlib/timer.h"
-#include "driverlib/interrupt.h"
-
-//Includes for buttons
-#include "driverlib/gpio.h"
-#include "buttons.h"
-
-//Includes for analog clock sin() and cos()
-#include "math.h"
-
-//Defines
-#define BUTTON_CLOCK 200 // button scanning interrupt rate in Hz
-#define M_PI 3.14159265358979323846f // Mathematical constant pi
-#define ADC_BUFFER_SIZE 2048 // must be a power of 2
-#define ADC_BUFFER_WRAP(i) ((i) & (ADC_BUFFER_SIZE - 1)) // index wrapping macro
-// Globals
-unsigned long g_ulSystemClock; // system clock frequency in Hz
-volatile unsigned long g_ulTime = 0; // time in hundredths of a second
-volatile unsigned char g_clockSelect = 1; // switch between analog and digital clock display
-volatile int g_iADCBufferIndex = ADC_BUFFER_SIZE - 1;  // latest sample index
-volatile unsigned short g_pusADCBuffer[ADC_BUFFER_SIZE]; // circular buffer
-volatile unsigned long g_ulADCErrors = 0; // number of missed ADC deadlines
-
-//Structures
-typedef struct {
-	short x;
-	short y;
-} Point;
+#include "main.h"
 
 /**
  * Timer 0 interrupt service routine
@@ -100,6 +56,11 @@ void TimerISR(void) {
 	}
 }
 
+/**
+ * ADC Interrupt service routine. Stores ADC value in the global
+ * circular buffer.  If the ADC FIFO overflows, count as a fault.
+ * Adapted from Lab 1 handout by Professor Gene Bogdanov
+ */
 void ADC_ISR(void) {
 	ADC_ISC_R = ADC_ISC_IN0; // clear ADC sequence0 interrupt flag in the ADCISC register
 	if (ADC0_OSTAT_R & ADC_OSTAT_OV0) { // check for ADC FIFO overflow
@@ -170,27 +131,41 @@ void adcSetup(void) {
 	IntEnable(INT_ADC0SS0); // enable ADC0 interrupts
 }
 
-//void adcSetupHex(void) {
-//	SYSCTL_RCGC0_R |= SYSCTL_RCGC0_ADC;
-////	ADC_SSPRI_R |=
-//	ADC_ACTSS_R &= ~ADC_ACTSS_ASEN0;
-//	ADC_EMUX_R |= ADC_EMUX_EM0_ALWAYS;
-//	ADC_SSMUX0_R |= (ADC_SSMUX0_MUX0_M | ADC_SSMUX0_MUX1_M | ADC_SSMUX0_MUX2_M
-//			| ADC_SSMUX0_MUX3_M | ADC_SSMUX0_MUX4_M | ADC_SSMUX0_MUX5_M
-//			| ADC_SSMUX0_MUX6_M | ADC_SSMUX0_MUX7_M);
-//	ADC_SSCTL0_R
-//
-//}
-
 /**
- * Computes the cartesian coordinate of the seconds
- * for the analog clock given the radius and angle
+ * Function: triggerSearch
+ * ----------------------------
+ *   This function searches for a trigger in the ADC buffer and returns the index of the trigger
+ *   when found. If one is not found, this function will return the index half a buffer away from the newest sample
+ *
+ *   triggerLevel: the magnitude, in ADC counts, of the trigger
+ *   direction: the direction of change of a trigger, either +1 for rising or -1 for falling
+ *
+ *   returns: the index of the trigger, or the index half a buffer from the newest sample if a trigger is not found
  */
-Point calcCoord(unsigned short radius, float angle) {
-	Point p;
-	p.x = (float) radius * cos(angle);
-	p.y = (float) radius * sin(angle);
-	return p;
+unsigned int triggerSearch(int triggerLevel, int direction){
+	unsigned int startIndex = g_iADCBufferIndex - (SCREEN_WIDTH / 2); //start half a screen width from the most recent sample
+	unsigned int searchIndex = startIndex;
+	unsigned int searched = 0; //This avoids doing math dealing with the buffer wrap for deciding when to give up
+
+	while (1) {
+		//Look for trigger,break loop if found
+		int curCount = g_pusADCBuffer[searchIndex]; //Accessing two members of a shared data structure non-atomically
+		int prevCount = g_pusADCBuffer[searchIndex - 1]; //Shared data safe because ISR writes to different part of buffer
+
+		//Is curCount a trigger?
+		if ((curCount == triggerLevel) && (direction * (curCount - prevCount) > 0)) {
+			return searchIndex;
+		}
+
+		//If we have searched half of the buffer, give up. Else, move the search index back
+		if (searched == (ADC_BUFFER_SIZE / 2)) {
+			return ADC_BUFFER_WRAP(g_iADCBufferIndex - (ADC_BUFFER_SIZE / 2));;
+		}
+		else {
+			searchIndex = ADC_BUFFER_WRAP(--searchIndex);
+			searched++;
+		}
+	}
 }
 
 /**
@@ -212,8 +187,8 @@ int main(void) {
 	// is not computed in the main loop
 	unsigned short j;
 	for (j = 0; j < 60; j++) {
-		points[j] = calcCoord(radius - 6,
-				M_PI * 2.0f * (float) (j - 15) * 6.0f / 360.0f);
+		//points[j] = calcCoord(radius - 6,
+			//	M_PI * 2.0f * (float) (j - 15) * 6.0f / 360.0f);
 		points[j].x += offsetX; // offsets to center drawing
 		points[j].y += offsetY;
 	}
