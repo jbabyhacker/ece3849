@@ -227,6 +227,15 @@ int main(void) {
 								level); // draw data points with lines
 		}
 
+		//Decorate screen *****These values need to be adjusted so the grids are squares. They are not right now******
+		unsigned short k;
+		for(k=0; k < 10; k++){
+			unsigned short x = k* FRAME_SIZE_X/10 + 5;
+			unsigned short y = k* FRAME_SIZE_Y/10 + 5;
+			DrawLine(x, 0, x, FRAME_SIZE_Y, 5); // draw vertical gridlines
+			DrawLine(0, y, FRAME_SIZE_X, y, 5); // draw horizontal gridlines
+		}
+
 		// copy frame to the OLED screen
 		RIT128x96x4ImageDraw(g_pucFrame, 0, 0, FRAME_SIZE_X, FRAME_SIZE_Y);
 	}
