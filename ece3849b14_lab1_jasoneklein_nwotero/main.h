@@ -45,6 +45,7 @@
 #define VIN_RANGE 6
 #define PIXELS_PER_DIV 12
 #define ADC_BITS 10
+#define BUTTON_BUFFER_SIZE 10
 
 // Globals
 unsigned long g_ulSystemClock; // system clock frequency in Hz
@@ -53,6 +54,12 @@ volatile unsigned char g_clockSelect = 1; // switch between analog and digital c
 volatile int g_iADCBufferIndex = ADC_BUFFER_SIZE - 1;  // latest sample index
 volatile unsigned short g_pusADCBuffer[ADC_BUFFER_SIZE]; // circular buffer
 volatile unsigned long g_ulADCErrors = 0; // number of missed ADC deadlines
+volatile unsigned char g_ucTriggerLevel = 0;
+volatile unsigned char g_ucTriggerDirection = 0;
+volatile char g_cPortEBufferIndex = BUTTON_BUFFER_SIZE - 1;
+volatile unsigned char g_pucPortEButtonBuffer[BUTTON_BUFFER_SIZE];
+volatile char g_cPortFBufferIndex = BUTTON_BUFFER_SIZE - 1;
+volatile unsigned char g_pucPortFButtonBuffer[BUTTON_BUFFER_SIZE];
 
 //Structures
 typedef struct {

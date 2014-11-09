@@ -56,6 +56,50 @@ void TimerISR(void) {
 	}
 }
 
+void PortE_Button_ISR(void) {
+	GPIO_PORTE_ICR_R = GPIO_ICR_GPIO_M; // clear Port E interrupt flag
+
+	unsigned long presses = g_ulButtons;
+
+	ButtonDebounce((~GPIO_PORTE_DATA_R & GPIO_PIN_0) << 4 // "up" button
+	| (~GPIO_PORTE_DATA_R & GPIO_PIN_1) << 2 // "down" button
+	| (~GPIO_PORTE_DATA_R & GPIO_PIN_2) // "left" button
+			| (~GPIO_PORTE_DATA_R & GPIO_PIN_3) >> 2); // "right" button
+//	presses = ~presses & g_ulButtons; // button press detector
+
+	unsigned char buffer_index = ADC_BUFFER_WRAP(g_cPortEBufferIndex + 1);
+	g_pucPortEButtonBuffer[buffer_index] = ~presses & g_ulButtons;
+	g_cPortEBufferIndex = buffer_index;
+
+//	if (presses & 2) { // "Right" button pressed
+//		g_ulTime = 0; // reset clock time to 0
+//	}
+//
+//	if (presses & 4) { // "Left" button pressed
+//		g_clockSelect = !g_clockSelect; // switch clock display
+//	}
+//
+//	if (presses & 8) { // "Down" button pressed
+//		g_ulTime = 0; // reset clock time to 0
+//	}
+//
+//	if (presses & 16) { // "Up" button pressed
+//		g_ulTime = 0; // reset clock time to 0
+//	}
+}
+
+void PortF_Button_ISR(void) {
+	GPIO_PORTF_ICR_R = GPIO_ICR_GPIO_M; // clear Port F interrupt flag
+
+	unsigned long presses = g_ulButtons;
+	ButtonDebounce((~GPIO_PORTF_DATA_R & GPIO_PIN_1) >> 1); // "select" button
+	presses = ~presses & g_ulButtons;
+
+	unsigned char buffer_index =  ADC_BUFFER_WRAP(g_cPortEBufferIndex + 1);
+	g_pucPortFButtonBuffer[buffer_index] = ~presses & g_ulButtons;
+	g_cPortFBufferIndex = buffer_index;
+}
+
 /**
  * ADC Interrupt service routine. Stores ADC value in the global
  * circular buffer.  If the ADC FIFO overflows, count as a fault.
@@ -100,6 +144,16 @@ void timerSetup(void) {
  * Adapted from Lab 0 handout by Professor Gene Bogdanov
  */
 void buttonSetup(void) {
+	// configure GPIO to trigger interrupts on "up", "down", "left", "right" buttons
+	GPIOPortIntRegister(GPIO_PORTE_BASE, PortE_Button_ISR); // set interrupt handler
+	GPIOIntTypeSet(GPIO_PORTE_BASE,
+			GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3,
+			GPIO_FALLING_EDGE); // trigger on "up", "down", "left", "right" buttons on falling edge
+
+	// configure GPIO to trigger interrupts on "select" button
+	GPIOPortIntRegister(GPIO_PORTF_BASE, PortF_Button_ISR);
+	GPIOIntTypeSet(GPIO_PORTF_BASE, GPIO_PIN_1, GPIO_FALLING_EDGE); // trigger "select" on falling edge
+
 	// configure GPIO used to read the state of the on-board push buttons
 	// configures select button
 	SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOF);
@@ -115,6 +169,12 @@ void buttonSetup(void) {
 	GPIOPadConfigSet(GPIO_PORTE_BASE,
 			GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3,
 			GPIO_STRENGTH_2MA, GPIO_PIN_TYPE_STD_WPU);
+
+	IntPrioritySet(INT_GPIOE, 32); // set Port E priority: 0 = highest priority, 32 = next lower
+	IntPrioritySet(INT_GPIOF, 32); // set Port F priority: 0 = highest priority, 32 = next lower
+	GPIOPinIntEnable(GPIO_PORTE_BASE,
+			GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3); // enable interrupts on Port E
+	GPIOPinIntEnable(GPIO_PORTF_BASE, GPIO_PIN_1);
 }
 
 void adcSetup(void) {
@@ -209,13 +269,16 @@ int main(void) {
 		//Copy, convert a screen's worth of data into a local buffer of points
 		Point localADCBuffer[SCREEN_WIDTH];
 		float fVoltsPerDiv = 1;
-		float fScale = (VIN_RANGE * PIXELS_PER_DIV)/((1 << ADC_BITS) * fVoltsPerDiv);
+		float fScale = (VIN_RANGE * PIXELS_PER_DIV)
+				/ ((1 << ADC_BITS) * fVoltsPerDiv);
 		int i;
 		for (i = 0; i < SCREEN_WIDTH; i++) {
 			Point dataPoint;
 			dataPoint.x = i;
-			dataPoint.y = FRAME_SIZE_Y/2 - (int)round((
-					((int)g_pusADCBuffer[triggerIndex + i]) - ADC_OFFSET) * fScale);
+			dataPoint.y = FRAME_SIZE_Y / 2
+					- (int) round(
+							(((int) g_pusADCBuffer[triggerIndex + i])
+									- ADC_OFFSET) * fScale);
 			localADCBuffer[i] = dataPoint;
 		}
 
@@ -223,17 +286,19 @@ int main(void) {
 		unsigned short level = 15;
 		int j;
 		for (j = 1; j < SCREEN_WIDTH; j++) {
-			DrawLine(localADCBuffer[j-1].x, localADCBuffer[j-1].y, localADCBuffer[j].x, localADCBuffer[j].y,
-								level); // draw data points with lines
+			DrawLine(localADCBuffer[j - 1].x, localADCBuffer[j - 1].y,
+					localADCBuffer[j].x, localADCBuffer[j].y, level); // draw data points with lines
 		}
 
-		//Decorate screen *****These values need to be adjusted so the grids are squares. They are not right now******
+		// Decorate screen grids
 		unsigned short k;
-		for(k=0; k < 10; k++){
-			unsigned short x = k* FRAME_SIZE_X/10 + 5;
-			unsigned short y = k* FRAME_SIZE_Y/10 + 5;
-			DrawLine(x, 0, x, FRAME_SIZE_Y, 5); // draw vertical gridlines
-			DrawLine(0, y, FRAME_SIZE_X, y, 5); // draw horizontal gridlines
+		for (k = 0; k < FRAME_SIZE_X; k += PIXELS_PER_DIV) {
+			unsigned short x = k + 5;
+			DrawLine(x, 0, x, FRAME_SIZE_Y, 2); // draw vertical gridlines
+			if (k < 96) {
+				unsigned short y = k + 5;
+				DrawLine(0, y, FRAME_SIZE_X, y, 2); // draw horizontal gridlines
+			}
 		}
 
 		// copy frame to the OLED screen
