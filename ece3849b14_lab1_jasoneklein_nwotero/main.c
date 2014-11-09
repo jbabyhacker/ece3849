@@ -142,7 +142,7 @@ void adcSetup(void) {
  *
  *   returns: the index of the trigger, or the index half a buffer from the newest sample if a trigger is not found
  */
-unsigned int triggerSearch(int triggerLevel, int direction){
+unsigned int triggerSearch(int triggerLevel, int direction) {
 	unsigned int startIndex = g_iADCBufferIndex - (SCREEN_WIDTH / 2); //start half a screen width from the most recent sample
 	unsigned int searchIndex = startIndex;
 	unsigned int searched = 0; //This avoids doing math dealing with the buffer wrap for deciding when to give up
@@ -153,15 +153,15 @@ unsigned int triggerSearch(int triggerLevel, int direction){
 		int prevCount = g_pusADCBuffer[searchIndex - 1]; //Shared data safe because ISR writes to different part of buffer
 
 		//Is curCount a trigger?
-		if ((curCount == triggerLevel) && (direction * (curCount - prevCount) > 0)) {
+		if ((curCount == triggerLevel)
+				&& (direction * (curCount - prevCount) > 0)) {
 			return searchIndex;
 		}
 
 		//If we have searched half of the buffer, give up. Else, move the search index back
 		if (searched == (ADC_BUFFER_SIZE / 2)) {
 			return ADC_BUFFER_WRAP(g_iADCBufferIndex - (ADC_BUFFER_SIZE / 2));;
-		}
-		else {
+		} else {
 			searchIndex = ADC_BUFFER_WRAP(--searchIndex);
 			searched++;
 		}
@@ -181,17 +181,6 @@ int main(void) {
 	short offsetX = 63; // center of display in x direction
 	short offsetY = 47; // center of display in y direction
 	Point points[60]; // stores coordinates of tick marks
-
-	// pre-calculates coordinates of analog clock tick marks
-	// using floating point math so that floating point math
-	// is not computed in the main loop
-	unsigned short j;
-	for (j = 0; j < 60; j++) {
-		//points[j] = calcCoord(radius - 6,
-			//	M_PI * 2.0f * (float) (j - 15) * 6.0f / 360.0f);
-		points[j].x += offsetX; // offsets to center drawing
-		points[j].y += offsetY;
-	}
 
 	// initialize the clock generator, from TI qs_eklm3s8962
 	if (REVISION_IS_A2) {
@@ -214,28 +203,28 @@ int main(void) {
 	while (true) {
 		FillFrame(0); // clear frame buffer
 
-		ulTime = g_ulTime; // read volatile global only once
-		centiseconds = ulTime % 100; // hundredths of a second
-		seconds = (ulTime / 100) % 60; // seconds
-		minutes = (ulTime / 100) / 60; // minutes
+		//Find trigger
+		int triggerIndex = triggerSearch(0, 1);
 
-		if (g_clockSelect) {
-			usprintf(pcStr, "Time = %02u:%02u:%02u", minutes, seconds,
-					centiseconds); // convert time to string
-			DrawString(0, 0, pcStr, 15, false); // draw string to frame buffer
-		} else {
-			DrawCircle(offsetX, offsetY, radius, 15); // draw clock circle
-			short i;
-			unsigned level = 15;
-			for (i = 0; i < 60; i++) {
-				level = i % 5 == 0 ? 15 : 10; // make every 5th point darker
-				DrawPoint(points[i].x, points[i].y, level); // draw clock tick marks
-			}
+		//Copy, convert a screen's worth of data into a local buffer of points
+		Point localADCBuffer[SCREEN_WIDTH];
+		float fVoltsPerDiv = 1;
+		float fScale = (VIN_RANGE * PIXELS_PER_DIV)/((1 << ADC_BITS) * fVoltsPerDiv);
+		int i;
+		for (i = 0; i < SCREEN_WIDTH; i++) {
+			Point dataPoint;
+			dataPoint.x = i;
+			dataPoint.y = FRAME_SIZE_Y/2 - (int)round((
+					((int)g_pusADCBuffer[triggerIndex + i]) - ADC_OFFSET) * fScale);
+			localADCBuffer[i] = dataPoint;
+		}
 
-			DrawLine(offsetX, offsetY, points[seconds].x, points[seconds].y,
-					15); // draw seconds hand
-			DrawLine(offsetX, offsetY, points[minutes].x, points[minutes].y,
-					10); // draw minutes hand
+		//Draw points using the cached data
+		unsigned short level = 15;
+		int j;
+		for (j = 1; j < SCREEN_WIDTH; j++) {
+			DrawLine(localADCBuffer[j-1].x, localADCBuffer[j-1].y, localADCBuffer[j].x, localADCBuffer[j].y,
+								level); // draw data points with lines
 		}
 
 		// copy frame to the OLED screen
