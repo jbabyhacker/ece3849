@@ -41,11 +41,12 @@
 #define ADC_BUFFER_SIZE 2048 // must be a power of 2
 #define ADC_BUFFER_WRAP(i) ((i) & (ADC_BUFFER_SIZE - 1)) // index wrapping macro
 #define SCREEN_WIDTH 128 // width of OLED screen in pixels
-#define ADC_OFFSET 512
-#define VIN_RANGE 6
+#define ADC_OFFSET 0//512
+#define VIN_RANGE 3
 #define PIXELS_PER_DIV 12
 #define ADC_BITS 10
 #define BUTTON_BUFFER_SIZE 10
+#define ADC_TO_VOLT(c) (((float)VIN_RANGE / (float)(1 << ADC_BITS)) * (float)(c - ADC_OFFSET))
 
 // Globals
 unsigned long g_ulSystemClock; // system clock frequency in Hz
