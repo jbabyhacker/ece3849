@@ -225,6 +225,7 @@ unsigned int triggerSearch(float triggerLevel, int direction) {
 
 		//If we have searched half of the buffer, give up. Else, move the search index back
 		if (searched == (ADC_BUFFER_SIZE / 2)) {
+			g_ulTriggerSearchFail++;
 			return ADC_BUFFER_WRAP(g_iADCBufferIndex - (ADC_BUFFER_SIZE / 2));;
 		} else {
 			searchIndex = ADC_BUFFER_WRAP(--searchIndex);
@@ -280,10 +281,7 @@ int main(void) {
 		for (i = 0; i < SCREEN_WIDTH; i++) {
 			Point dataPoint;
 			dataPoint.x = i;
-			dataPoint.y = FRAME_SIZE_Y / 2
-					- (int) round(
-							(((int) g_pusADCBuffer[triggerIndex + i])
-									- ADC_OFFSET) * fScale);
+			dataPoint.y = g_pusADCBuffer[ADC_BUFFER_WRAP(triggerIndex + i)];
 			localADCBuffer[i] = dataPoint;
 		}
 
@@ -291,8 +289,17 @@ int main(void) {
 		unsigned short level = 15;
 		int j;
 		for (j = 1; j < SCREEN_WIDTH; j++) {
-			DrawLine(localADCBuffer[j - 1].x, localADCBuffer[j - 1].y,
-					localADCBuffer[j].x, localADCBuffer[j].y, level); // draw data points with lines
+			int y0 = FRAME_SIZE_Y / 2
+					- (int) round(
+							(((int) localADCBuffer[j-1].y)
+									- ADC_OFFSET) * fScale);
+			int y1 = FRAME_SIZE_Y / 2
+					- (int) round(
+							(((int) localADCBuffer[j].y)
+									- ADC_OFFSET) * fScale);
+
+			DrawLine(localADCBuffer[j - 1].x, y0,
+					localADCBuffer[j].x, y1, level); // draw data points with lines
 		}
 
 		// Decorate screen grids

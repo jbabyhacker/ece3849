@@ -62,6 +62,8 @@ volatile unsigned char g_pucPortEButtonBuffer[BUTTON_BUFFER_SIZE];
 volatile char g_cPortFBufferIndex = BUTTON_BUFFER_SIZE - 1;
 volatile unsigned char g_pucPortFButtonBuffer[BUTTON_BUFFER_SIZE];
 
+volatile unsigned long g_ulTriggerSearchFail = 0;
+
 //Structures
 typedef struct {
 	short x;
