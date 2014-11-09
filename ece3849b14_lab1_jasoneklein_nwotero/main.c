@@ -95,7 +95,7 @@ void PortF_Button_ISR(void) {
 	ButtonDebounce((~GPIO_PORTF_DATA_R & GPIO_PIN_1) >> 1); // "select" button
 	presses = ~presses & g_ulButtons;
 
-	unsigned char buffer_index =  ADC_BUFFER_WRAP(g_cPortEBufferIndex + 1);
+	unsigned char buffer_index = ADC_BUFFER_WRAP(g_cPortEBufferIndex + 1);
 	g_pucPortFButtonBuffer[buffer_index] = ~presses & g_ulButtons;
 	g_cPortFBufferIndex = buffer_index;
 }
@@ -144,6 +144,22 @@ void timerSetup(void) {
  * Adapted from Lab 0 handout by Professor Gene Bogdanov
  */
 void buttonSetup(void) {
+	// configure GPIO used to read the state of the on-board push buttons
+	// configures "up", "down", "left", "right" buttons
+	SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOE);
+	GPIOPinTypeGPIOInput(GPIO_PORTE_BASE,
+			GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3);
+	GPIOPadConfigSet(GPIO_PORTE_BASE,
+			GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3,
+			GPIO_STRENGTH_2MA, GPIO_PIN_TYPE_STD_WPU);
+
+	// configure GPIO used to read the state of the on-board push buttons
+	// configures select button
+	SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOF);
+	GPIOPinTypeGPIOInput(GPIO_PORTF_BASE, GPIO_PIN_1);
+	GPIOPadConfigSet(GPIO_PORTF_BASE, GPIO_PIN_1, GPIO_STRENGTH_2MA,
+			GPIO_PIN_TYPE_STD_WPU);
+
 	// configure GPIO to trigger interrupts on "up", "down", "left", "right" buttons
 	GPIOPortIntRegister(GPIO_PORTE_BASE, PortE_Button_ISR); // set interrupt handler
 	GPIOIntTypeSet(GPIO_PORTE_BASE,
@@ -154,27 +170,11 @@ void buttonSetup(void) {
 	GPIOPortIntRegister(GPIO_PORTF_BASE, PortF_Button_ISR);
 	GPIOIntTypeSet(GPIO_PORTF_BASE, GPIO_PIN_1, GPIO_FALLING_EDGE); // trigger "select" on falling edge
 
-	// configure GPIO used to read the state of the on-board push buttons
-	// configures select button
-	SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOF);
-	GPIOPinTypeGPIOInput(GPIO_PORTF_BASE, GPIO_PIN_1);
-	GPIOPadConfigSet(GPIO_PORTF_BASE, GPIO_PIN_1, GPIO_STRENGTH_2MA,
-			GPIO_PIN_TYPE_STD_WPU);
-
-	// configure GPIO used to read the state of the on-board push buttons
-	// configures "up", "down", "left", "right" buttons
-	SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOE);
-	GPIOPinTypeGPIOInput(GPIO_PORTE_BASE,
-			GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3);
-	GPIOPadConfigSet(GPIO_PORTE_BASE,
-			GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3,
-			GPIO_STRENGTH_2MA, GPIO_PIN_TYPE_STD_WPU);
-
 	IntPrioritySet(INT_GPIOE, 32); // set Port E priority: 0 = highest priority, 32 = next lower
 	IntPrioritySet(INT_GPIOF, 32); // set Port F priority: 0 = highest priority, 32 = next lower
 	GPIOPinIntEnable(GPIO_PORTE_BASE,
 			GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3); // enable interrupts on Port E
-	GPIOPinIntEnable(GPIO_PORTF_BASE, GPIO_PIN_1);
+	GPIOPinIntEnable(GPIO_PORTF_BASE, GPIO_PIN_1); // enable interrupts on Port F
 }
 
 void adcSetup(void) {
@@ -216,10 +216,10 @@ unsigned int triggerSearch(float triggerLevel, int direction) {
 		float epsilon = 0.001;
 
 		//Is curVolt a trigger?
-		if (((direction == 1) && 													//If looking for rising edge
-				(curVolt >= triggerLevel) && (prevVolt < triggerLevel))				//And the current and previous voltages are above/equal to and below the trigger
-				|| ((direction == -1) && 											//Or, if looking for falling edge
-						(curVolt <= triggerLevel) && (prevVolt > triggerLevel))) {	//And the current and previous voltages are below/equal to and above the trigger
+		if (((direction == 1) && 					//If looking for rising edge
+				(curVolt >= triggerLevel) && (prevVolt < triggerLevel))	//And the current and previous voltages are above/equal to and below the trigger
+		|| ((direction == -1) && 			//Or, if looking for falling edge
+				(curVolt <= triggerLevel) && (prevVolt > triggerLevel))) { //And the current and previous voltages are below/equal to and above the trigger
 			return searchIndex;
 		}
 
@@ -261,9 +261,9 @@ int main(void) {
 
 	RIT128x96x4Init(3500000); // initialize the OLED display, from TI qs_eklm3s8962
 
-	buttonSetup(); // configure buttons
-	timerSetup(); // configure timer
 	adcSetup(); // configure ADC
+//	timerSetup(); // configure timer
+	buttonSetup(); // configure buttons
 	IntMasterEnable();
 
 	while (true) {
@@ -291,24 +291,24 @@ int main(void) {
 		for (j = 1; j < SCREEN_WIDTH; j++) {
 			int y0 = FRAME_SIZE_Y / 2
 					- (int) round(
-							(((int) localADCBuffer[j-1].y)
-									- ADC_OFFSET) * fScale);
+							(((int) localADCBuffer[j - 1].y) - ADC_OFFSET)
+									* fScale);
 			int y1 = FRAME_SIZE_Y / 2
 					- (int) round(
-							(((int) localADCBuffer[j].y)
-									- ADC_OFFSET) * fScale);
+							(((int) localADCBuffer[j].y) - ADC_OFFSET)
+									* fScale);
 
-			DrawLine(localADCBuffer[j - 1].x, y0,
-					localADCBuffer[j].x, y1, level); // draw data points with lines
+			DrawLine(localADCBuffer[j - 1].x, y0, localADCBuffer[j].x, y1,
+					level); // draw data points with lines
 		}
 
 		// Decorate screen grids
 		unsigned short k;
 		for (k = 0; k < FRAME_SIZE_X; k += PIXELS_PER_DIV) {
 			unsigned short x = k + 5;
+			unsigned short y = k;
 			DrawLine(x, 0, x, FRAME_SIZE_Y, 2); // draw vertical gridlines
-			if (k < 96) {
-				unsigned short y = k + 5;
+			if (y < 96) {
 				DrawLine(0, y, FRAME_SIZE_X, y, 2); // draw horizontal gridlines
 			}
 		}
