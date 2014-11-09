@@ -137,24 +137,29 @@ void adcSetup(void) {
  *   This function searches for a trigger in the ADC buffer and returns the index of the trigger
  *   when found. If one is not found, this function will return the index half a buffer away from the newest sample
  *
- *   triggerLevel: the magnitude, in ADC counts, of the trigger
- *   direction: the direction of change of a trigger, either +1 for rising or -1 for falling
+ *   triggerLevel: the floating-point magnitude, in Volts, of the trigger
+ *   direction: the direction of change of a trigger, either (int) +1 for rising or -1 for falling
  *
  *   returns: the index of the trigger, or the index half a buffer from the newest sample if a trigger is not found
  */
-unsigned int triggerSearch(int triggerLevel, int direction) {
+unsigned int triggerSearch(float triggerLevel, int direction) {
 	unsigned int startIndex = g_iADCBufferIndex - (SCREEN_WIDTH / 2); //start half a screen width from the most recent sample
 	unsigned int searchIndex = startIndex;
 	unsigned int searched = 0; //This avoids doing math dealing with the buffer wrap for deciding when to give up
 
 	while (1) {
 		//Look for trigger,break loop if found
-		int curCount = g_pusADCBuffer[searchIndex]; //Accessing two members of a shared data structure non-atomically
-		int prevCount = g_pusADCBuffer[searchIndex - 1]; //Shared data safe because ISR writes to different part of buffer
+		unsigned int curCount = g_pusADCBuffer[searchIndex];
+		unsigned int prevCount = g_pusADCBuffer[searchIndex - 1];
+		float curVolt = ADC_TO_VOLT(curCount); //Accessing two members of a shared data structure non-atomically
+		float prevVolt = ADC_TO_VOLT(prevCount); //Shared data safe because ISR writes to different part of buffer
+		float epsilon = 0.001;
 
-		//Is curCount a trigger?
-		if ((curCount == triggerLevel)
-				&& (direction * (curCount - prevCount) > 0)) {
+		//Is curVolt a trigger?
+		if (((direction == 1) && 													//If looking for rising edge
+				(curVolt >= triggerLevel) && (prevVolt < triggerLevel))				//And the current and previous voltages are above/equal to and below the trigger
+				|| ((direction == -1) && 											//Or, if looking for falling edge
+						(curVolt <= triggerLevel) && (prevVolt > triggerLevel))) {	//And the current and previous voltages are below/equal to and above the trigger
 			return searchIndex;
 		}
 
@@ -204,7 +209,7 @@ int main(void) {
 		FillFrame(0); // clear frame buffer
 
 		//Find trigger
-		int triggerIndex = triggerSearch(0, 1);
+		int triggerIndex = triggerSearch(1.5, 1);
 
 		//Copy, convert a screen's worth of data into a local buffer of points
 		Point localADCBuffer[SCREEN_WIDTH];
