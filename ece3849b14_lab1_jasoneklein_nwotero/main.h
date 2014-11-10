@@ -35,6 +35,12 @@
 //Includes for analog clock sin() and cos()
 #include "math.h"
 
+//Includes for NULL
+#include "stdlib.h"
+
+//Includes FIFO
+#include "charFifo.h"
+
 //Defines
 #define BUTTON_CLOCK 200 // button scanning interrupt rate in Hz
 #define M_PI 3.14159265358979323846f // Mathematical constant pi

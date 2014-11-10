@@ -64,40 +64,21 @@ void PortE_Button_ISR(void) {
 	ButtonDebounce((~GPIO_PORTE_DATA_R & GPIO_PIN_0) << 4 // "up" button
 	| (~GPIO_PORTE_DATA_R & GPIO_PIN_1) << 2 // "down" button
 	| (~GPIO_PORTE_DATA_R & GPIO_PIN_2) // "left" button
-			| (~GPIO_PORTE_DATA_R & GPIO_PIN_3) >> 2); // "right" button
-//	presses = ~presses & g_ulButtons; // button press detector
-
-	unsigned char buffer_index = ADC_BUFFER_WRAP(g_cPortEBufferIndex + 1);
-	g_pucPortEButtonBuffer[buffer_index] = ~presses & g_ulButtons;
-	g_cPortEBufferIndex = buffer_index;
-
-//	if (presses & 2) { // "Right" button pressed
-//		g_ulTime = 0; // reset clock time to 0
-//	}
-//
-//	if (presses & 4) { // "Left" button pressed
-//		g_clockSelect = !g_clockSelect; // switch clock display
-//	}
-//
-//	if (presses & 8) { // "Down" button pressed
-//		g_ulTime = 0; // reset clock time to 0
-//	}
-//
-//	if (presses & 16) { // "Up" button pressed
-//		g_ulTime = 0; // reset clock time to 0
-//	}
+			| (~GPIO_PORTE_DATA_R & GPIO_PIN_3) >> 2 // "right" button
+			| (~GPIO_PORTF_DATA_R & GPIO_PIN_1) >> 1); // "select" button
+	fifo_put(~presses & g_ulButtons);
 }
 
 void PortF_Button_ISR(void) {
 	GPIO_PORTF_ICR_R = GPIO_ICR_GPIO_M; // clear Port F interrupt flag
 
 	unsigned long presses = g_ulButtons;
-	ButtonDebounce((~GPIO_PORTF_DATA_R & GPIO_PIN_1) >> 1); // "select" button
-	presses = ~presses & g_ulButtons;
-
-	unsigned char buffer_index = ADC_BUFFER_WRAP(g_cPortEBufferIndex + 1);
-	g_pucPortFButtonBuffer[buffer_index] = ~presses & g_ulButtons;
-	g_cPortFBufferIndex = buffer_index;
+	ButtonDebounce((~GPIO_PORTE_DATA_R & GPIO_PIN_0) << 4 // "up" button
+	| (~GPIO_PORTE_DATA_R & GPIO_PIN_1) << 2 // "down" button
+	| (~GPIO_PORTE_DATA_R & GPIO_PIN_2) // "left" button
+			| (~GPIO_PORTE_DATA_R & GPIO_PIN_3) >> 2 // "right" button
+			| (~GPIO_PORTF_DATA_R & GPIO_PIN_1) >> 1); // "select" button
+	fifo_put(~presses & g_ulButtons);
 }
 
 /**
@@ -175,6 +156,12 @@ void buttonSetup(void) {
 	GPIOPinIntEnable(GPIO_PORTE_BASE,
 			GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3); // enable interrupts on Port E
 	GPIOPinIntEnable(GPIO_PORTF_BASE, GPIO_PIN_1); // enable interrupts on Port F
+
+	// initialize button FIFO
+	unsigned char success = create_fifo(BUTTON_BUFFER_SIZE);
+	if (!success) {
+		exit(0);
+	}
 }
 
 void adcSetup(void) {
@@ -268,6 +255,29 @@ int main(void) {
 
 	while (true) {
 		FillFrame(0); // clear frame buffer
+
+		//Process button input
+		char buttonPressed;
+		unsigned char success = fifo_get(&buttonPressed);
+		if(success) {
+			switch(buttonPressed) {
+			case 1: // "select" button
+
+				break;
+			case 2: // "right" button
+
+				break;
+			case 4: // "left" button
+
+				break;
+			case 8: // "down" button
+
+				break;
+			case 16: // "up" button
+
+				break;
+			}
+		}
 
 		//Find trigger
 		int triggerIndex = triggerSearch(1.5, 1);
