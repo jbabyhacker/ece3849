@@ -8,6 +8,8 @@
 
 #include "main.h"
 
+float cpu_load;
+
 /**
  * Timer 0 interrupt service routine
  * Adapted from Lab 0 handout by Professor Gene Bogdanov
@@ -101,27 +103,25 @@ void ADC_ISR(void) {
 	g_iADCBufferIndex = buffer_index;
 }
 
-/**
- * Configures timer to update at 200HZ
- * Obtained from Lab 0 handout by Professor Gene Bogdanov
- */
+
 void timerSetup(void) {
-	unsigned long ulDivider, ulPrescaler;
-	// initialize a general purpose timer for periodic interrupts
-	SysCtlPeripheralEnable(SYSCTL_PERIPH_TIMER0);
-	TimerDisable(TIMER0_BASE, TIMER_BOTH);
-	TimerConfigure(TIMER0_BASE, TIMER_CFG_SPLIT_PAIR | TIMER_CFG_A_PERIODIC);
-	// prescaler for a 16-bit timer
-	ulPrescaler = (g_ulSystemClock / BUTTON_CLOCK - 1) >> 16;
-	// 16-bit divider (timer load value)
-	ulDivider = g_ulSystemClock / (BUTTON_CLOCK * (ulPrescaler + 1)) - 1;
-	TimerLoadSet(TIMER0_BASE, TIMER_A, ulDivider);
-	TimerPrescaleSet(TIMER0_BASE, TIMER_A, ulPrescaler);
-	TimerIntEnable(TIMER0_BASE, TIMER_TIMA_TIMEOUT);
-	TimerEnable(TIMER0_BASE, TIMER_A);
-	// initialize interrupt controller to respond to timer interrupts
-	IntPrioritySet(INT_TIMER0A, 32); // 0 = highest priority, 32 = next lower
-	IntEnable(INT_TIMER0A);
+	IntMasterDisable();
+	// initialize timer 3 in one-shot mode for polled timing
+	SysCtlPeripheralEnable(SYSCTL_PERIPH_TIMER3);
+	TimerDisable(TIMER3_BASE, TIMER_BOTH);
+	TimerConfigure(TIMER3_BASE, TIMER_CFG_ONE_SHOT);
+	TimerLoadSet(TIMER3_BASE, TIMER_A, g_ulSystemClock/50 - 1); // 1 sec interval
+
+	//IntMasterEnable();
+}
+
+unsigned long cpu_load_count(void) {
+	unsigned long i = 0;
+	TimerIntClear(TIMER3_BASE, TIMER_TIMA_TIMEOUT);
+	TimerEnable(TIMER3_BASE, TIMER_A); // start one-shot timer
+	while (!(TimerIntStatus(TIMER3_BASE, 0) & TIMER_TIMA_TIMEOUT))
+		i++;
+	return i;
 }
 
 /**
@@ -252,6 +252,8 @@ int main(void) {
 	short offsetX = 63; // center of display in x direction
 	short offsetY = 47; // center of display in y direction
 	Point points[60]; // stores coordinates of tick marks
+	unsigned long count_unloaded;
+	unsigned long count_loaded;
 
 	// initialize the clock generator, from TI qs_eklm3s8962
 	if (REVISION_IS_A2) {
@@ -268,6 +270,7 @@ int main(void) {
 
 	adcSetup(); // configure ADC
 	timerSetup(); // configure timer
+	count_unloaded = cpu_load_count();
 	buttonSetup(); // configure buttons
 	IntMasterEnable();
 
@@ -342,6 +345,10 @@ int main(void) {
 
 		// copy frame to the OLED screen
 		RIT128x96x4ImageDraw(g_pucFrame, 0, 0, FRAME_SIZE_X, FRAME_SIZE_Y);
+
+		//Measure CPU Load
+		count_loaded = cpu_load_count();
+		cpu_load = 1.0 - (float)count_loaded/count_unloaded; // compute CPU load
 	}
 
 	return 0;

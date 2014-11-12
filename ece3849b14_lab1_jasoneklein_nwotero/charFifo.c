@@ -35,6 +35,7 @@ unsigned char create_fifo(const unsigned short size){
 }
 
 
+
 unsigned char fifo_put(char item) {
 	unsigned short new_tail = FIFO_WRAP(g_usFifoTail + 1);	//Get the index in front of the tail
 
