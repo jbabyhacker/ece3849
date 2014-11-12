@@ -58,27 +58,31 @@ void TimerISR(void) {
 
 void PortE_Button_ISR(void) {
 	GPIO_PORTE_ICR_R = GPIO_ICR_GPIO_M; // clear Port E interrupt flag
-
-	unsigned long presses = g_ulButtons;
-
-	ButtonDebounce((~GPIO_PORTE_DATA_R & GPIO_PIN_0) << 4 // "up" button
-	| (~GPIO_PORTE_DATA_R & GPIO_PIN_1) << 2 // "down" button
-	| (~GPIO_PORTE_DATA_R & GPIO_PIN_2) // "left" button
-			| (~GPIO_PORTE_DATA_R & GPIO_PIN_3) >> 2 // "right" button
-			| (~GPIO_PORTF_DATA_R & GPIO_PIN_1) >> 1); // "select" button
-	fifo_put(~presses & g_ulButtons);
+	if (!g_ucPortEButtonFlag) {
+		g_ucPortEButtonFlag = 1;
+	}
+//	unsigned long presses = g_ulButtons;
+//
+//	ButtonDebounce((~GPIO_PORTE_DATA_R & GPIO_PIN_0) << 4 // "up" button
+//	| (~GPIO_PORTE_DATA_R & GPIO_PIN_1) << 2 // "down" button
+//	| (~GPIO_PORTE_DATA_R & GPIO_PIN_2) // "left" button
+//			| (~GPIO_PORTE_DATA_R & GPIO_PIN_3) >> 2 // "right" button
+//			| (~GPIO_PORTF_DATA_R & GPIO_PIN_1) >> 1); // "select" button
+//	fifo_put(~presses & g_ulButtons);
 }
 
 void PortF_Button_ISR(void) {
 	GPIO_PORTF_ICR_R = GPIO_ICR_GPIO_M; // clear Port F interrupt flag
-
-	unsigned long presses = g_ulButtons;
-	ButtonDebounce((~GPIO_PORTE_DATA_R & GPIO_PIN_0) << 4 // "up" button
-	| (~GPIO_PORTE_DATA_R & GPIO_PIN_1) << 2 // "down" button
-	| (~GPIO_PORTE_DATA_R & GPIO_PIN_2) // "left" button
-			| (~GPIO_PORTE_DATA_R & GPIO_PIN_3) >> 2 // "right" button
-			| (~GPIO_PORTF_DATA_R & GPIO_PIN_1) >> 1); // "select" button
-	fifo_put(~presses & g_ulButtons);
+	if (!g_ucPortFButtonFlag) {
+		g_ucPortFButtonFlag = 1;
+	}
+//	unsigned long presses = g_ulButtons;
+//	ButtonDebounce((~GPIO_PORTE_DATA_R & GPIO_PIN_0) << 4 // "up" button
+//	| (~GPIO_PORTE_DATA_R & GPIO_PIN_1) << 2 // "down" button
+//	| (~GPIO_PORTE_DATA_R & GPIO_PIN_2) // "left" button
+//			| (~GPIO_PORTE_DATA_R & GPIO_PIN_3) >> 2 // "right" button
+//			| (~GPIO_PORTF_DATA_R & GPIO_PIN_1) >> 1); // "select" button
+//	fifo_put(~presses & g_ulButtons);
 }
 
 /**
@@ -158,10 +162,10 @@ void buttonSetup(void) {
 	GPIOPinIntEnable(GPIO_PORTF_BASE, GPIO_PIN_1); // enable interrupts on Port F
 
 	// initialize button FIFO
-	unsigned char success = create_fifo(BUTTON_BUFFER_SIZE);
-	if (!success) {
-		exit(0);
-	}
+//	unsigned char success = create_fifo(BUTTON_BUFFER_SIZE);
+//	if (!success) {
+//		exit(0);
+//	}
 }
 
 void adcSetup(void) {
@@ -221,6 +225,20 @@ unsigned int triggerSearch(float triggerLevel, int direction) {
 	}
 }
 
+void displayTrigger(int direction) {
+	unsigned char x = 100;
+	unsigned char y = 10;
+	DrawLine(TRIGGER_X_POS - (direction * TRIGGER_H_LINE),
+			TRIGGER_Y_POS - TRIGGER_V_LINE, TRIGGER_X_POS,
+			TRIGGER_Y_POS - TRIGGER_V_LINE, BRIGHT); // draw bottom horizontal line
+	DrawLine(TRIGGER_X_POS, TRIGGER_Y_POS + TRIGGER_V_LINE, TRIGGER_X_POS,
+			TRIGGER_Y_POS - TRIGGER_V_LINE, BRIGHT); // draw vertical line
+	DrawLine(TRIGGER_X_POS, TRIGGER_Y_POS + TRIGGER_V_LINE,
+			TRIGGER_X_POS + (direction * TRIGGER_H_LINE),
+			TRIGGER_Y_POS + TRIGGER_V_LINE, BRIGHT); // draw top horizontal line
+//	DrawLine(TRIGGER_X_POS-TRIGGER_ARROW_WIDTH, TRIGGER_Y_); // draw left side of arrow
+}
+
 /**
  * Adapted from Lab 0 handout by Professor Gene Bogdanov
  */
@@ -249,7 +267,7 @@ int main(void) {
 	RIT128x96x4Init(3500000); // initialize the OLED display, from TI qs_eklm3s8962
 
 	adcSetup(); // configure ADC
-//	timerSetup(); // configure timer
+	timerSetup(); // configure timer
 	buttonSetup(); // configure buttons
 	IntMasterEnable();
 
@@ -259,13 +277,13 @@ int main(void) {
 		//Process button input
 		char buttonPressed;
 		unsigned char success = fifo_get(&buttonPressed);
-		if(success) {
-			switch(buttonPressed) {
+		if (success) {
+			switch (buttonPressed) {
 			case 1: // "select" button
-
+				buttonPressed = 0;
 				break;
 			case 2: // "right" button
-
+				buttonPressed = 0;
 				break;
 			case 4: // "left" button
 
@@ -296,7 +314,6 @@ int main(void) {
 		}
 
 		//Draw points using the cached data
-		unsigned short level = 15;
 		int j;
 		for (j = 1; j < SCREEN_WIDTH; j++) {
 			int y0 = FRAME_SIZE_Y / 2
@@ -309,7 +326,7 @@ int main(void) {
 									* fScale);
 
 			DrawLine(localADCBuffer[j - 1].x, y0, localADCBuffer[j].x, y1,
-					level); // draw data points with lines
+					BRIGHT); // draw data points with lines
 		}
 
 		// Decorate screen grids
@@ -317,9 +334,9 @@ int main(void) {
 		for (k = 0; k < FRAME_SIZE_X; k += PIXELS_PER_DIV) {
 			unsigned short x = k + 5;
 			unsigned short y = k;
-			DrawLine(x, 0, x, FRAME_SIZE_Y, 2); // draw vertical gridlines
+			DrawLine(x, 0, x, FRAME_SIZE_Y, DIM); // draw vertical gridlines
 			if (y < 96) {
-				DrawLine(0, y, FRAME_SIZE_X, y, 2); // draw horizontal gridlines
+				DrawLine(0, y, FRAME_SIZE_X, y, DIM); // draw horizontal gridlines
 			}
 		}
 

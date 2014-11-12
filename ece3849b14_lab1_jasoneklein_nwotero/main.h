@@ -53,6 +53,14 @@
 #define ADC_BITS 10
 #define BUTTON_BUFFER_SIZE 10
 #define ADC_TO_VOLT(c) (((float)VIN_RANGE / (float)(1 << ADC_BITS)) * (float)(c - ADC_OFFSET))
+#define BRIGHT 15 // bright pixel level
+#define DIM 2 // dim pixel level
+#define TRIGGER_X_POS 100
+#define TRIGGER_Y_POS 15
+#define TRIGGER_H_LINE 10
+#define TRIGGER_V_LINE 5
+#define TRIGGER_ARROW_WIDTH 3
+#define TRIGGER_ARROW_HEIGHT 3
 
 // Globals
 unsigned long g_ulSystemClock; // system clock frequency in Hz
@@ -67,6 +75,8 @@ volatile char g_cPortEBufferIndex = BUTTON_BUFFER_SIZE - 1;
 volatile unsigned char g_pucPortEButtonBuffer[BUTTON_BUFFER_SIZE];
 volatile char g_cPortFBufferIndex = BUTTON_BUFFER_SIZE - 1;
 volatile unsigned char g_pucPortFButtonBuffer[BUTTON_BUFFER_SIZE];
+volatile unsigned char g_ucPortEButtonFlag = 0;
+volatile unsigned char g_ucPortFButtonFlag = 0;
 
 volatile unsigned long g_ulTriggerSearchFail = 0;
 

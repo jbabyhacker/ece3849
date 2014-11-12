@@ -9,24 +9,29 @@
 #include "stdlib.h"
 
 #define FIFO_WRAP(i) ((i < 0) ? 0 : ((i >= g_usFifoSize) ? (g_usFifoSize - 1) : i))
-#define ADC_BUFFER_WRAP(i) ((i) & (ADC_BUFFER_SIZE - 1)) // index wrapping macro
+//#define ADC_BUFFER_WRAP(i) ((i) & (ADC_BUFFER_SIZE - 1)) // index wrapping macro
 
-char* g_pcFifo = NULL;
+//char* g_pcFifo = NULL;
+char g_pcFifo[10];
 unsigned short g_usFifoHead = 0;
 unsigned short g_usFifoTail = 0;
-unsigned short g_usFifoSize;
+unsigned short g_usFifoSize = 10;
 
-unsigned char create_fifo(unsigned short size){
-	g_usFifoSize = size; 	//Save size to global variable
-	free(g_pcFifo);			//Free memory allocated to old FIFO
-	g_pcFifo = malloc(size * sizeof(char));	//Allocate memory for FIFO
+unsigned char create_fifo(const unsigned short size){
+//	g_usFifoSize = size; 	//Save size to global variable
+//	free(g_pcFifo);			//Free memory allocated to old FIFO
+//	char tempArray[size];
+//	g_pcFifo = tempArray;
+//	g_pcFifo = malloc(size * sizeof(char));	//Allocate memory for FIFO
 
-	if (g_pcFifo != NULL) {	//Ensure memory allocation was successful
-		return 1;
-	}
-	else {					//If it wasn't, return 0
-		return 0;
-	}
+	return 1;
+
+//	if (g_pcFifo != NULL) {	//Ensure memory allocation was successful
+//		return 1;
+//	}
+//	else {					//If it wasn't, return 0
+//		return 0;
+//	}
 }
 
 
