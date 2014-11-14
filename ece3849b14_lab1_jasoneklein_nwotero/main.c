@@ -104,6 +104,7 @@ void timerSetup(void) {
 	IntMasterDisable();
 	// initialize timer 3 in one-shot mode for polled timing
 	SysCtlPeripheralEnable(SYSCTL_PERIPH_TIMER3);
+	TIMER3_CTL_R &= TIMER_CTL_TAOTE; // Enable timer3_A ADC trigger
 	TimerDisable(TIMER3_BASE, TIMER_BOTH);
 	TimerConfigure(TIMER3_BASE, TIMER_CFG_ONE_SHOT);
 	TimerLoadSet(TIMER3_BASE, TIMER_A, g_ulSystemClock / 50 - 1); // 1 sec interval
@@ -166,7 +167,8 @@ void buttonSetup(void) {
 
 void adcSetup(void) {
 	SysCtlPeripheralEnable(SYSCTL_PERIPH_ADC0); // enable the ADC
-	SysCtlADCSpeedSet(SYSCTL_ADCSPEED_500KSPS); // specify 500ksps
+//	SysCtlADCSpeedSet(SYSCTL_ADCSPEED_500KSPS); // specify 500ksps
+	ADC0_EMUX_R  &= ADC_EMUX_EM3_TIMER; // ADC event on Timer3
 	ADCSequenceDisable(ADC0_BASE, 0); // choose ADC sequence 0; disable before configuring
 	ADCSequenceConfigure(ADC0_BASE, 0, ADC_TRIGGER_ALWAYS, 0); // specify the "Always" trigger
 	ADCSequenceStepConfigure(ADC0_BASE, 0, 0,
@@ -176,6 +178,10 @@ void adcSetup(void) {
 	ADCSequenceEnable(ADC0_BASE, 0); // enable the sequence. it is now sampling
 	IntPrioritySet(INT_ADC0SS0, 0); // 0 = highest priority
 	IntEnable(INT_ADC0SS0); // enable ADC0 interrupts
+}
+
+void adjustableAdcSetup() {
+
 }
 
 /**
