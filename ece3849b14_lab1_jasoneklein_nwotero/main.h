@@ -77,8 +77,8 @@ volatile char g_cPortFBufferIndex = BUTTON_BUFFER_SIZE - 1;
 volatile unsigned char g_pucPortFButtonBuffer[BUTTON_BUFFER_SIZE];
 volatile unsigned char g_ucPortEButtonFlag = 0;
 volatile unsigned char g_ucPortFButtonFlag = 0;
-
 volatile unsigned long g_ulTriggerSearchFail = 0;
+const char * const g_ppcVoltageScaleStr[] = {"100 mV", "200 mV", "500 mV", "1 V"};
 
 unsigned char g_ucTimescale = 24;
 unsigned char g_ucVoltageScale = 200;

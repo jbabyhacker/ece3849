@@ -224,18 +224,21 @@ unsigned int triggerSearch(float triggerLevel, int direction) {
 	}
 }
 
-void displayTrigger(int direction) {
-	unsigned char x = 100;
-	unsigned char y = 10;
+void drawTrigger(int direction) {
 	DrawLine(TRIGGER_X_POS - (direction * TRIGGER_H_LINE),
-			TRIGGER_Y_POS - TRIGGER_V_LINE, TRIGGER_X_POS,
-			TRIGGER_Y_POS - TRIGGER_V_LINE, BRIGHT); // draw bottom horizontal line
+			TRIGGER_Y_POS + TRIGGER_V_LINE, TRIGGER_X_POS,
+			TRIGGER_Y_POS + TRIGGER_V_LINE, BRIGHT); // draw bottom horizontal line
 	DrawLine(TRIGGER_X_POS, TRIGGER_Y_POS + TRIGGER_V_LINE, TRIGGER_X_POS,
 			TRIGGER_Y_POS - TRIGGER_V_LINE, BRIGHT); // draw vertical line
-	DrawLine(TRIGGER_X_POS, TRIGGER_Y_POS + TRIGGER_V_LINE,
+	DrawLine(TRIGGER_X_POS, TRIGGER_Y_POS - TRIGGER_V_LINE,
 			TRIGGER_X_POS + (direction * TRIGGER_H_LINE),
-			TRIGGER_Y_POS + TRIGGER_V_LINE, BRIGHT); // draw top horizontal line
-//	DrawLine(TRIGGER_X_POS-TRIGGER_ARROW_WIDTH, TRIGGER_Y_); // draw left side of arrow
+			TRIGGER_Y_POS - TRIGGER_V_LINE, BRIGHT); // draw top horizontal line
+	DrawLine(TRIGGER_X_POS - TRIGGER_ARROW_WIDTH,
+			TRIGGER_Y_POS + (direction * TRIGGER_ARROW_HEIGHT), TRIGGER_X_POS,
+			TRIGGER_Y_POS, BRIGHT); // draw left side of arrow
+	DrawLine(TRIGGER_X_POS + TRIGGER_ARROW_WIDTH,
+			TRIGGER_Y_POS + (direction * TRIGGER_ARROW_HEIGHT), TRIGGER_X_POS,
+			TRIGGER_Y_POS, BRIGHT); // draw right side of arrow
 }
 
 /**
@@ -268,6 +271,8 @@ int main(void) {
 
 	while (true) {
 		FillFrame(0); // clear frame buffer
+
+		drawTrigger(-1);
 
 		//Process button input
 		char buttonPressed;
