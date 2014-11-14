@@ -8,8 +8,6 @@
 
 #include "main.h"
 
-float cpu_load;
-
 /**
  * Timer 0 interrupt service routine
  * Adapted from Lab 0 handout by Professor Gene Bogdanov
@@ -38,7 +36,6 @@ void TimerISR(void) {
 	}
 
 	if (presses & 4) { // "Left" button pressed
-		g_clockSelect = !g_clockSelect; // switch clock display
 	}
 
 	if (presses & 8) { // "Down" button pressed
@@ -246,9 +243,12 @@ void drawTrigger(int direction) {
  */
 int main(void) {
 	char pcStr[50]; // string buffer
+	float cpu_load;
 	unsigned long count_unloaded;
 	unsigned long count_loaded;
-	unsigned char selectionIndex = 0;
+	unsigned char selectionIndex = 1;
+	unsigned int mvoltsPerDiv = 500;
+	float fScale;
 
 	// initialize the clock generator, from TI qs_eklm3s8962
 	if (REVISION_IS_A2) {
@@ -272,14 +272,13 @@ int main(void) {
 	while (true) {
 		FillFrame(0); // clear frame buffer
 
-		drawTrigger(-1);
-
 		//Process button input
 		char buttonPressed;
 		unsigned char success = fifo_get(&buttonPressed);
 		if (success) {
 			switch (buttonPressed) {
 			case 1: // "select" button
+				g_ucTriggerDirection *= -1;
 				break;
 			case 2: // "right" button
 				selectionIndex = (selectionIndex == 2) ? 2 : ++selectionIndex;
@@ -291,19 +290,30 @@ int main(void) {
 
 				break;
 			case 16: // "up" button
+				if (selectionIndex == 0) {
 
+				} else if (selectionIndex == 1) {
+					if (mvoltsPerDiv == 500) {
+						mvoltsPerDiv = 1000;
+					} else if (mvoltsPerDiv == 200) {
+						mvoltsPerDiv = 500;
+					} else if (mvoltsPerDiv == 100) {
+						mvoltsPerDiv = 200;
+					}
+				} else {
+
+				}
 				break;
 			}
 		}
+		fScale = (VIN_RANGE * PIXELS_PER_DIV)
+				/ ((1 << ADC_BITS) * (((float)mvoltsPerDiv) / 1000));
 
 		//Find trigger
 		int triggerIndex = triggerSearch(1.5, 1);
 
 		//Copy, convert a screen's worth of data into a local buffer of points
 		Point localADCBuffer[SCREEN_WIDTH];
-		float fVoltsPerDiv = 1;
-		float fScale = (VIN_RANGE * PIXELS_PER_DIV)
-				/ ((1 << ADC_BITS) * fVoltsPerDiv);
 		int i;
 		for (i = 0; i < SCREEN_WIDTH; i++) {
 			Point dataPoint;
@@ -316,12 +326,10 @@ int main(void) {
 		int j;
 		for (j = 1; j < SCREEN_WIDTH; j++) {
 			int y0 = FRAME_SIZE_Y / 2
-					- (int) round(
-							(((int) localADCBuffer[j - 1].y) - ADC_OFFSET)
+					- ((((int) localADCBuffer[j - 1].y) - ADC_OFFSET)
 									* fScale);
 			int y1 = FRAME_SIZE_Y / 2
-					- (int) round(
-							(((int) localADCBuffer[j].y) - ADC_OFFSET)
+					- ((((int) localADCBuffer[j].y) - ADC_OFFSET)
 									* fScale);
 
 			DrawLine(localADCBuffer[j - 1].x, y0, localADCBuffer[j].x, y1,
@@ -340,16 +348,17 @@ int main(void) {
 		}
 
 		//Draw selector rectangle
-		unsigned char x1, x2, y1 = 0, y2 = 6;
-		if (selectionIndex == 0){
+		unsigned char x1, x2, y1 = 0, y2 = 7;
+		if (selectionIndex == 0) {
 			x1 = 0;
 			x2 = 30;
-		}else if (selectionIndex == 1){
+		} else if (selectionIndex == 1) {
 			x1 = 50;
-			x2 = 80;
-		}else {
-			x1 = 98;
-			x2 = 128;
+			x2 = 84;
+		} else {
+			x1 = 100;
+			x2 = 120;
+			y2 = 9;
 		}
 		DrawFilledRectangle(x1, y1, x2, y2, 5);
 
@@ -357,8 +366,8 @@ int main(void) {
 		count_loaded = cpu_load_count();
 		cpu_load = 1.0 - (float) count_loaded / count_unloaded; // compute CPU load
 
-		unsigned int whole = (int)(cpu_load*100);
-		unsigned int frac = (int)(cpu_load*1000 - whole*10);
+		unsigned int whole = (int) (cpu_load * 100);
+		unsigned int frac = (int) (cpu_load * 1000 - whole * 10);
 
 		usprintf(pcStr, "CPU Load: %02u.%01u\%\%", whole, frac); // convert CPU load to string
 		DrawString(0, 86, pcStr, 15, false); // draw string to frame buffer
@@ -368,8 +377,10 @@ int main(void) {
 		DrawString(5, 0, pcStr, 15, false); // draw string to frame buffer
 
 		//Draw voltage scale
-		usprintf(pcStr, "%02umV", g_ucVoltageScale); // convert timescale to string
+		usprintf(pcStr, "%02umV", mvoltsPerDiv); // convert voltage scale to string
 		DrawString(53, 0, pcStr, 15, false); // draw string to frame buffer
+
+		drawTrigger(g_ucTriggerDirection);
 
 		// copy frame to the OLED screen
 		RIT128x96x4ImageDraw(g_pucFrame, 0, 0, FRAME_SIZE_X, FRAME_SIZE_Y);

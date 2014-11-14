@@ -55,22 +55,21 @@
 #define ADC_TO_VOLT(c) (((float)VIN_RANGE / (float)(1 << ADC_BITS)) * (float)(c - ADC_OFFSET))
 #define BRIGHT 15 // bright pixel level
 #define DIM 2 // dim pixel level
-#define TRIGGER_X_POS 100
-#define TRIGGER_Y_POS 15
-#define TRIGGER_H_LINE 10
-#define TRIGGER_V_LINE 5
-#define TRIGGER_ARROW_WIDTH 3
-#define TRIGGER_ARROW_HEIGHT 3
+#define TRIGGER_X_POS 110
+#define TRIGGER_Y_POS 5
+#define TRIGGER_H_LINE 6
+#define TRIGGER_V_LINE 4
+#define TRIGGER_ARROW_WIDTH 4
+#define TRIGGER_ARROW_HEIGHT 2
 
 // Globals
 unsigned long g_ulSystemClock; // system clock frequency in Hz
 volatile unsigned long g_ulTime = 0; // time in hundredths of a second
-volatile unsigned char g_clockSelect = 1; // switch between analog and digital clock display
 volatile int g_iADCBufferIndex = ADC_BUFFER_SIZE - 1;  // latest sample index
 volatile unsigned short g_pusADCBuffer[ADC_BUFFER_SIZE]; // circular buffer
 volatile unsigned long g_ulADCErrors = 0; // number of missed ADC deadlines
 volatile unsigned char g_ucTriggerLevel = 0;
-volatile unsigned char g_ucTriggerDirection = 0;
+volatile unsigned char g_ucTriggerDirection = 1;
 volatile char g_cPortEBufferIndex = BUTTON_BUFFER_SIZE - 1;
 volatile unsigned char g_pucPortEButtonBuffer[BUTTON_BUFFER_SIZE];
 volatile char g_cPortFBufferIndex = BUTTON_BUFFER_SIZE - 1;
@@ -81,7 +80,6 @@ volatile unsigned long g_ulTriggerSearchFail = 0;
 const char * const g_ppcVoltageScaleStr[] = {"100 mV", "200 mV", "500 mV", "1 V"};
 
 unsigned char g_ucTimescale = 24;
-unsigned char g_ucVoltageScale = 200;
 
 //Structures
 typedef struct {
