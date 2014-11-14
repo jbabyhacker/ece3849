@@ -103,14 +103,13 @@ void ADC_ISR(void) {
 	g_iADCBufferIndex = buffer_index;
 }
 
-
 void timerSetup(void) {
 	IntMasterDisable();
 	// initialize timer 3 in one-shot mode for polled timing
 	SysCtlPeripheralEnable(SYSCTL_PERIPH_TIMER3);
 	TimerDisable(TIMER3_BASE, TIMER_BOTH);
 	TimerConfigure(TIMER3_BASE, TIMER_CFG_ONE_SHOT);
-	TimerLoadSet(TIMER3_BASE, TIMER_A, g_ulSystemClock/50 - 1); // 1 sec interval
+	TimerLoadSet(TIMER3_BASE, TIMER_A, g_ulSystemClock / 50 - 1); // 1 sec interval
 
 	//IntMasterEnable();
 }
@@ -244,16 +243,9 @@ void displayTrigger(int direction) {
  */
 int main(void) {
 	char pcStr[50]; // string buffer
-	unsigned long ulTime; // local copy of g_ulTime
-	unsigned short centiseconds;
-	unsigned short seconds;
-	unsigned short minutes;
-	unsigned short radius = 47;
-	short offsetX = 63; // center of display in x direction
-	short offsetY = 47; // center of display in y direction
-	Point points[60]; // stores coordinates of tick marks
 	unsigned long count_unloaded;
 	unsigned long count_loaded;
+	unsigned char selectionIndex = 0;
 
 	// initialize the clock generator, from TI qs_eklm3s8962
 	if (REVISION_IS_A2) {
@@ -283,13 +275,12 @@ int main(void) {
 		if (success) {
 			switch (buttonPressed) {
 			case 1: // "select" button
-				buttonPressed = 0;
 				break;
 			case 2: // "right" button
-				buttonPressed = 0;
+				selectionIndex = (selectionIndex == 2) ? 2 : ++selectionIndex;
 				break;
 			case 4: // "left" button
-
+				selectionIndex = (selectionIndex == 0) ? 0 : --selectionIndex;
 				break;
 			case 8: // "down" button
 
@@ -343,12 +334,41 @@ int main(void) {
 			}
 		}
 
-		// copy frame to the OLED screen
-		RIT128x96x4ImageDraw(g_pucFrame, 0, 0, FRAME_SIZE_X, FRAME_SIZE_Y);
+		//Draw selector rectangle
+		unsigned char x1, x2, y1 = 0, y2 = 6;
+		if (selectionIndex == 0){
+			x1 = 0;
+			x2 = 30;
+		}else if (selectionIndex == 1){
+			x1 = 50;
+			x2 = 80;
+		}else {
+			x1 = 98;
+			x2 = 128;
+		}
+		DrawFilledRectangle(x1, y1, x2, y2, 5);
 
 		//Measure CPU Load
 		count_loaded = cpu_load_count();
-		cpu_load = 1.0 - (float)count_loaded/count_unloaded; // compute CPU load
+		cpu_load = 1.0 - (float) count_loaded / count_unloaded; // compute CPU load
+
+		unsigned int whole = (int)(cpu_load*100);
+		unsigned int frac = (int)(cpu_load*1000 - whole*10);
+
+		usprintf(pcStr, "CPU Load: %02u.%01u\%\%", whole, frac); // convert CPU load to string
+		DrawString(0, 86, pcStr, 15, false); // draw string to frame buffer
+
+		//Draw timescale
+		usprintf(pcStr, "%02uus", g_ucTimescale); // convert timescale to string
+		DrawString(5, 0, pcStr, 15, false); // draw string to frame buffer
+
+		//Draw voltage scale
+		usprintf(pcStr, "%02umV", g_ucVoltageScale); // convert timescale to string
+		DrawString(53, 0, pcStr, 15, false); // draw string to frame buffer
+
+		// copy frame to the OLED screen
+		RIT128x96x4ImageDraw(g_pucFrame, 0, 0, FRAME_SIZE_X, FRAME_SIZE_Y);
+
 	}
 
 	return 0;

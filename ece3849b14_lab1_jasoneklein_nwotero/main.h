@@ -80,6 +80,9 @@ volatile unsigned char g_ucPortFButtonFlag = 0;
 
 volatile unsigned long g_ulTriggerSearchFail = 0;
 
+unsigned char g_ucTimescale = 24;
+unsigned char g_ucVoltageScale = 200;
+
 //Structures
 typedef struct {
 	short x;
