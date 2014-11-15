@@ -63,6 +63,7 @@
 #define TRIGGER_ARROW_WIDTH 4
 #define TRIGGER_ARROW_HEIGHT 2
 
+
 // Globals
 unsigned long g_ulSystemClock; // system clock frequency in Hz
 volatile unsigned long g_ulTime = 0; // time in hundredths of a second

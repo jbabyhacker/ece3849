@@ -21,14 +21,6 @@ void PortE_Button_ISR(void) {
 	if (!g_ucPortEButtonFlag) {
 		g_ucPortEButtonFlag = 1;
 	}
-//	unsigned long presses = g_ulButtons;
-//
-//	ButtonDebounce((~GPIO_PORTE_DATA_R & GPIO_PIN_0) << 4 // "up" button
-//	| (~GPIO_PORTE_DATA_R & GPIO_PIN_1) << 2 // "down" button
-//	| (~GPIO_PORTE_DATA_R & GPIO_PIN_2) // "left" button
-//			| (~GPIO_PORTE_DATA_R & GPIO_PIN_3) >> 2 // "right" button
-//			| (~GPIO_PORTF_DATA_R & GPIO_PIN_1) >> 1); // "select" button
-//	fifo_put(~presses & g_ulButtons);
 }
 
 void PortF_Button_ISR(void) {
@@ -36,13 +28,6 @@ void PortF_Button_ISR(void) {
 	if (!g_ucPortFButtonFlag) {
 		g_ucPortFButtonFlag = 1;
 	}
-//	unsigned long presses = g_ulButtons;
-//	ButtonDebounce((~GPIO_PORTE_DATA_R & GPIO_PIN_0) << 4 // "up" button
-//	| (~GPIO_PORTE_DATA_R & GPIO_PIN_1) << 2 // "down" button
-//	| (~GPIO_PORTE_DATA_R & GPIO_PIN_2) // "left" button
-//			| (~GPIO_PORTE_DATA_R & GPIO_PIN_3) >> 2 // "right" button
-//			| (~GPIO_PORTF_DATA_R & GPIO_PIN_1) >> 1); // "select" button
-//	fifo_put(~presses & g_ulButtons);
 }
 
 /**
@@ -84,7 +69,6 @@ void TIMER_0_ISR(void) {
 		}
 
 		if (presses & 2) { // "Right" button pressed
-			//			g_ulTime = 0; // reset clock time to 0
 			fifo_put(2);
 			g_ucPortEButtonFlag = 0;
 		}
@@ -95,13 +79,11 @@ void TIMER_0_ISR(void) {
 		}
 
 		if (presses & 8) { // "Down" button pressed
-			//			g_ulTime = 0; // reset clock time to 0
 			fifo_put(4);
 			g_ucPortEButtonFlag = 0;
 		}
 
 		if (presses & 16) { // "Up" button pressed
-			//			g_ulTime = 0; // reset clock time to 0
 			fifo_put(5);
 			g_ucPortEButtonFlag = 0;
 		}
@@ -179,8 +161,8 @@ void buttonSetup(void) {
 	GPIOPortIntRegister(GPIO_PORTF_BASE, PortF_Button_ISR);
 	GPIOIntTypeSet(GPIO_PORTF_BASE, GPIO_PIN_1, GPIO_FALLING_EDGE); // trigger "select" on falling edge
 
-	IntPrioritySet(INT_GPIOE, 32); // set Port E priority: 0 = highest priority, 32 = next lower
-	IntPrioritySet(INT_GPIOF, 32); // set Port F priority: 0 = highest priority, 32 = next lower
+	IntPrioritySet(INT_GPIOE, 64); // set Port E priority: 0 = highest priority, 32 = next lower
+	IntPrioritySet(INT_GPIOF, 64); // set Port F priority: 0 = highest priority, 32 = next lower
 	GPIOPinIntEnable(GPIO_PORTE_BASE,
 			GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3); // enable interrupts on Port E
 	GPIOPinIntEnable(GPIO_PORTF_BASE, GPIO_PIN_1); // enable interrupts on Port F
