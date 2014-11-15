@@ -104,7 +104,7 @@ void timerSetup(void) {
 	IntMasterDisable();
 	// initialize timer 3 in one-shot mode for polled timing
 	SysCtlPeripheralEnable(SYSCTL_PERIPH_TIMER3);
-	TIMER3_CTL_R &= TIMER_CTL_TAOTE; // Enable timer3_A ADC trigger
+	//TIMER3_CTL_R &= TIMER_CTL_TAOTE; // Enable timer3_A ADC trigger
 	TimerDisable(TIMER3_BASE, TIMER_BOTH);
 	TimerConfigure(TIMER3_BASE, TIMER_CFG_ONE_SHOT);
 	TimerLoadSet(TIMER3_BASE, TIMER_A, g_ulSystemClock / 50 - 1); // 1 sec interval
@@ -167,8 +167,8 @@ void buttonSetup(void) {
 
 void adcSetup(void) {
 	SysCtlPeripheralEnable(SYSCTL_PERIPH_ADC0); // enable the ADC
-//	SysCtlADCSpeedSet(SYSCTL_ADCSPEED_500KSPS); // specify 500ksps
-	ADC0_EMUX_R  &= ADC_EMUX_EM3_TIMER; // ADC event on Timer3
+	SysCtlADCSpeedSet(SYSCTL_ADCSPEED_500KSPS); // specify 500ksps
+	//ADC0_EMUX_R &= ADC_EMUX_EM3_TIMER; // ADC event on Timer3
 	ADCSequenceDisable(ADC0_BASE, 0); // choose ADC sequence 0; disable before configuring
 	ADCSequenceConfigure(ADC0_BASE, 0, ADC_TRIGGER_ALWAYS, 0); // specify the "Always" trigger
 	ADCSequenceStepConfigure(ADC0_BASE, 0, 0,
@@ -202,17 +202,18 @@ unsigned int triggerSearch(float triggerLevel, int direction) {
 
 	while (1) {
 		//Look for trigger,break loop if found
-		unsigned int curCount = g_pusADCBuffer[searchIndex];
-		unsigned int prevCount = g_pusADCBuffer[searchIndex - 1];
-		float curVolt = ADC_TO_VOLT(curCount); //Accessing two members of a shared data structure non-atomically
-		float prevVolt = ADC_TO_VOLT(prevCount); //Shared data safe because ISR writes to different part of buffer
-		float epsilon = 0.001;
+		unsigned int curCount = g_pusADCBuffer[searchIndex];		//Accessing two members of a shared data structure non-atomically
+		unsigned int prevCount = g_pusADCBuffer[searchIndex - 1];	//Shared data safe because ISR writes to different part of buffer
+		float curVolt = ADC_TO_VOLT(curCount);
+		float prevVolt = ADC_TO_VOLT(prevCount);
 
 		//Is curVolt a trigger?
 		if (((direction == 1) && 					//If looking for rising edge
-				(curVolt >= triggerLevel) && (prevVolt < triggerLevel))	//And the current and previous voltages are above/equal to and below the trigger
+				(curVolt >= triggerLevel) &&
+				(prevVolt < triggerLevel))	//And the current and previous voltages are above/equal to and below the trigger
 		|| ((direction == -1) && 			//Or, if looking for falling edge
-				(curVolt <= triggerLevel) && (prevVolt > triggerLevel))) { //And the current and previous voltages are below/equal to and above the trigger
+				(curVolt <= triggerLevel) &&
+				(prevVolt > triggerLevel))) { //And the current and previous voltages are below/equal to and above the trigger
 			return searchIndex;
 		}
 
@@ -244,6 +245,7 @@ void drawTrigger(int direction) {
 			TRIGGER_Y_POS, BRIGHT); // draw right side of arrow
 }
 
+float fScale;
 /**
  * Adapted from Lab 0 handout by Professor Gene Bogdanov
  */
@@ -254,7 +256,8 @@ int main(void) {
 	unsigned long count_loaded;
 	unsigned char selectionIndex = 1;
 	unsigned int mvoltsPerDiv = 500;
-	float fScale;
+
+	float triggerLevel = 1.5;
 
 	// initialize the clock generator, from TI qs_eklm3s8962
 	if (REVISION_IS_A2) {
@@ -293,12 +296,24 @@ int main(void) {
 				selectionIndex = (selectionIndex == 0) ? 0 : --selectionIndex;
 				break;
 			case 8: // "down" button
-
+				if (selectionIndex == 0) {
+					//Adjust Timescale
+				} else if (selectionIndex == 1) { //Adjust pixel per ADC tick
+					if (mvoltsPerDiv == 1000) {
+						mvoltsPerDiv = 500;
+					} else if (mvoltsPerDiv == 500) {
+						mvoltsPerDiv = 200;
+					} else if (mvoltsPerDiv == 200) {
+						mvoltsPerDiv = 100;
+					}
+				} else {
+					triggerLevel -= 0.5 * mvoltsPerDiv;
+				}
 				break;
 			case 16: // "up" button
 				if (selectionIndex == 0) {
-
-				} else if (selectionIndex == 1) {
+					//Adjust Timescale
+				} else if (selectionIndex == 1) { //Adjust pixel per ADC tick
 					if (mvoltsPerDiv == 500) {
 						mvoltsPerDiv = 1000;
 					} else if (mvoltsPerDiv == 200) {
@@ -307,16 +322,16 @@ int main(void) {
 						mvoltsPerDiv = 200;
 					}
 				} else {
-
+					triggerLevel += 0.5 * mvoltsPerDiv;
 				}
 				break;
 			}
 		}
-		fScale = (VIN_RANGE * PIXELS_PER_DIV)
-				/ ((1 << ADC_BITS) * (((float)mvoltsPerDiv) / 1000));
+		fScale = ((float) (VIN_RANGE * 1000 * PIXELS_PER_DIV))
+				/ ((float) ((1 << ADC_BITS) * mvoltsPerDiv));
 
 		//Find trigger
-		int triggerIndex = triggerSearch(1.5, 1);
+		int triggerIndex = triggerSearch(triggerLevel, 1);
 
 		//Copy, convert a screen's worth of data into a local buffer of points
 		Point localADCBuffer[SCREEN_WIDTH];
@@ -332,11 +347,9 @@ int main(void) {
 		int j;
 		for (j = 1; j < SCREEN_WIDTH; j++) {
 			int y0 = FRAME_SIZE_Y / 2
-					- ((((int) localADCBuffer[j - 1].y) - ADC_OFFSET)
-									* fScale);
+					- ((localADCBuffer[j - 1].y - ADC_OFFSET) * fScale);
 			int y1 = FRAME_SIZE_Y / 2
-					- ((((int) localADCBuffer[j].y) - ADC_OFFSET)
-									* fScale);
+					- ((localADCBuffer[j].y - ADC_OFFSET) * fScale);
 
 			DrawLine(localADCBuffer[j - 1].x, y0, localADCBuffer[j].x, y1,
 					BRIGHT); // draw data points with lines
@@ -387,6 +400,12 @@ int main(void) {
 		DrawString(53, 0, pcStr, 15, false); // draw string to frame buffer
 
 		drawTrigger(g_ucTriggerDirection);
+
+		int voltToAdc = VOLT_TO_ADC(triggerLevel);
+		float voltToAdcFscale = voltToAdc * fScale;
+		int y = (int)((FRAME_SIZE_Y / 2) - voltToAdcFscale);
+
+		DrawLine(0, y, FRAME_SIZE_X - 1, y, 10);
 
 		// copy frame to the OLED screen
 		RIT128x96x4ImageDraw(g_pucFrame, 0, 0, FRAME_SIZE_X, FRAME_SIZE_Y);

@@ -48,11 +48,12 @@
 #define ADC_BUFFER_WRAP(i) ((i) & (ADC_BUFFER_SIZE - 1)) // index wrapping macro
 #define SCREEN_WIDTH 128 // width of OLED screen in pixels
 #define ADC_OFFSET 0//512
-#define VIN_RANGE 3
+#define VIN_RANGE 3.3
 #define PIXELS_PER_DIV 12
 #define ADC_BITS 10
 #define BUTTON_BUFFER_SIZE 10
 #define ADC_TO_VOLT(c) (((float)VIN_RANGE / (float)(1 << ADC_BITS)) * (float)(c - ADC_OFFSET))
+#define VOLT_TO_ADC(v) (((float)(1 << ADC_BITS) / (float)VIN_RANGE) * (float)(v)) + ADC_OFFSET
 #define BRIGHT 15 // bright pixel level
 #define DIM 2 // dim pixel level
 #define TRIGGER_X_POS 110
@@ -83,8 +84,8 @@ unsigned char g_ucTimescale = 24;
 
 //Structures
 typedef struct {
-	short x;
-	short y;
+	int x;
+	int y;
 } Point;
 
 
