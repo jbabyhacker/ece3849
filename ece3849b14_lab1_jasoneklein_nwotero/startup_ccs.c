@@ -35,6 +35,7 @@ void TimerISR(void);
 void ADC_ISR(void);
 void PortE_Button_ISR(void);
 void PortF_Button_ISR(void);
+void TIMER_0_ISR(void);
 
 //*****************************************************************************
 //
@@ -97,7 +98,7 @@ void (* const g_pfnVectors[])(void) =
     IntDefaultHandler,                      // ADC Sequence 2
     IntDefaultHandler,                     	// ADC Sequence 3
     IntDefaultHandler,                      // Watchdog timer
-    TimerISR,								// Timer 0 subtimer A
+    TIMER_0_ISR,							// Timer 0 subtimer A
     IntDefaultHandler,                      // Timer 0 subtimer B
     IntDefaultHandler,			            // Timer 1 subtimer A
     IntDefaultHandler,                      // Timer 1 subtimer B
@@ -113,7 +114,7 @@ void (* const g_pfnVectors[])(void) =
     IntDefaultHandler,                      // GPIO Port H
     IntDefaultHandler,                      // UART2 Rx and Tx
     IntDefaultHandler,                      // SSI1 Rx and Tx
-    IntDefaultHandler,                      // Timer 3 subtimer A
+    TimerISR,                      			// Timer 3 subtimer A
     IntDefaultHandler,                      // Timer 3 subtimer B
     IntDefaultHandler,                      // I2C1 Master and Slave
     IntDefaultHandler,                      // Quadrature Encoder 1
