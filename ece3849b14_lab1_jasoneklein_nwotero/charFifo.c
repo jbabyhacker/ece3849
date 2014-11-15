@@ -8,14 +8,14 @@
 #include "charFifo.h"
 #include "stdlib.h"
 
-#define FIFO_WRAP(i) ((i < 0) ? 0 : ((i >= g_usFifoSize) ? (g_usFifoSize - 1) : i))
+#define FIFO_WRAP(i) ((i < 0) ? (g_usFifoSize - i) : ((i >= g_usFifoSize) ? (i - g_usFifoSize) : i))
 //#define ADC_BUFFER_WRAP(i) ((i) & (ADC_BUFFER_SIZE - 1)) // index wrapping macro
 
 //char* g_pcFifo = NULL;
 char g_pcFifo[10];
 unsigned short g_usFifoHead = 0;
 unsigned short g_usFifoTail = 0;
-unsigned short g_usFifoSize = 10;
+const unsigned short g_usFifoSize = 10;
 
 unsigned char create_fifo(const unsigned short size){
 //	g_usFifoSize = size; 	//Save size to global variable

@@ -13,46 +13,7 @@
  * Adapted from Lab 0 handout by Professor Gene Bogdanov
  */
 void TimerISR(void) {
-	static int tic = false;
-	static int running = true;
-	unsigned long presses = g_ulButtons;
-	TIMER0_ICR_R = TIMER_ICR_TATOCINT; // clear interrupt flag
-	// button debounce
-	ButtonDebounce((~GPIO_PORTE_DATA_R & GPIO_PIN_0) << 4 // "up" button
-	| (~GPIO_PORTE_DATA_R & GPIO_PIN_1) << 2 // "down" button
-	| (~GPIO_PORTE_DATA_R & GPIO_PIN_2) // "left" button
-			| (~GPIO_PORTE_DATA_R & GPIO_PIN_3) >> 2 // "right" button
-			| (~GPIO_PORTF_DATA_R & GPIO_PIN_1) >> 1); // "select" button
-	presses = ~presses & g_ulButtons; // button press detector
-
-	//Note, we could make this one statement, but it is expanded for readability
-	//Determine which buttons are pressed
-	if (presses & 1) { // "select" button pressed
-		running = !running; // stop the TimerISR() from updating g_ulTime
-	}
-
-	if (presses & 2) { // "Right" button pressed
-		g_ulTime = 0; // reset clock time to 0
-	}
-
-	if (presses & 4) { // "Left" button pressed
-	}
-
-	if (presses & 8) { // "Down" button pressed
-		g_ulTime = 0; // reset clock time to 0
-	}
-
-	if (presses & 16) { // "Up" button pressed
-		g_ulTime = 0; // reset clock time to 0
-	}
-
-	if (running) {
-		if (tic) {
-			g_ulTime++; // increment time every other ISR call
-			tic = false;
-		} else
-			tic = true;
-	}
+	TIMER3_ICR_R = TIMER_ICR_TATOCINT; // clear interrupt flag
 }
 
 void PortE_Button_ISR(void) {
@@ -100,16 +61,82 @@ void ADC_ISR(void) {
 	g_iADCBufferIndex = buffer_index;
 }
 
+void TIMER_0_ISR(void) {
+	TIMER0_ICR_R = TIMER_ICR_TATOCINT;
+	unsigned long presses = g_ulButtons;
+
+	if (g_ucPortEButtonFlag || g_ucPortFButtonFlag) {
+		// button debounce
+		ButtonDebounce((~GPIO_PORTE_DATA_R & GPIO_PIN_0) << 4 // "up" button
+		| (~GPIO_PORTE_DATA_R & GPIO_PIN_1) << 2 // "down" button
+		| (~GPIO_PORTE_DATA_R & GPIO_PIN_2) // "left" button
+				| (~GPIO_PORTE_DATA_R & GPIO_PIN_3) >> 2 // "right" button
+				| (~GPIO_PORTF_DATA_R & GPIO_PIN_1) >> 1); // "select" button
+		presses = ~presses & g_ulButtons; // button press detector
+//		fifo_put(presses);
+
+		//Note, we could make this one statement, but it is expanded for readability
+		//Determine which buttons are pressed
+		if (presses & 1) { // "select" button pressed
+			//			running = !running; // stop the TimerISR() from updating g_ulTime
+			fifo_put(1);
+			g_ucPortFButtonFlag = 0;
+		}
+
+		if (presses & 2) { // "Right" button pressed
+			//			g_ulTime = 0; // reset clock time to 0
+			fifo_put(2);
+			g_ucPortEButtonFlag = 0;
+		}
+
+		if (presses & 4) { // "Left" button pressed
+			fifo_put(3);
+			g_ucPortEButtonFlag = 0;
+		}
+
+		if (presses & 8) { // "Down" button pressed
+			//			g_ulTime = 0; // reset clock time to 0
+			fifo_put(4);
+			g_ucPortEButtonFlag = 0;
+		}
+
+		if (presses & 16) { // "Up" button pressed
+			//			g_ulTime = 0; // reset clock time to 0
+			fifo_put(5);
+			g_ucPortEButtonFlag = 0;
+		}
+	}
+}
+
 void timerSetup(void) {
 	IntMasterDisable();
+
+	// configure timer 3
 	// initialize timer 3 in one-shot mode for polled timing
 	SysCtlPeripheralEnable(SYSCTL_PERIPH_TIMER3);
-	//TIMER3_CTL_R &= TIMER_CTL_TAOTE; // Enable timer3_A ADC trigger
+//	TIMER3_CTL_R &= TIMER_CTL_TAOTE; // Enable timer3_A ADC trigger/
+//	TimerControlTrigger(TIMER3_BASE, TIMER_A, true);
 	TimerDisable(TIMER3_BASE, TIMER_BOTH);
 	TimerConfigure(TIMER3_BASE, TIMER_CFG_ONE_SHOT);
 	TimerLoadSet(TIMER3_BASE, TIMER_A, g_ulSystemClock / 50 - 1); // 1 sec interval
 
-	//IntMasterEnable();
+	// configure timer 0
+	unsigned long ulDivider, ulPrescaler;
+	// initialize a general purpose timer for periodic interrupts
+	SysCtlPeripheralEnable(SYSCTL_PERIPH_TIMER0);
+	TimerDisable(TIMER0_BASE, TIMER_BOTH);
+	TimerConfigure(TIMER0_BASE, TIMER_CFG_SPLIT_PAIR | TIMER_CFG_A_PERIODIC);
+	// prescaler for a 16-bit timer
+	ulPrescaler = (g_ulSystemClock / BUTTON_CLOCK - 1) >> 16;
+	// 16-bit divider (timer load value)
+	ulDivider = g_ulSystemClock / (BUTTON_CLOCK * (ulPrescaler + 1)) - 1;
+	TimerLoadSet(TIMER0_BASE, TIMER_A, ulDivider);
+	TimerPrescaleSet(TIMER0_BASE, TIMER_A, ulPrescaler);
+	TimerIntEnable(TIMER0_BASE, TIMER_TIMA_TIMEOUT);
+	TimerEnable(TIMER0_BASE, TIMER_A);
+	// initialize interrupt controller to respond to timer interrupts
+	IntPrioritySet(INT_TIMER0A, 0); // 0 = highest priority, 32 = next lower
+	IntEnable(INT_TIMER0A);
 }
 
 unsigned long cpu_load_count(void) {
@@ -170,18 +197,16 @@ void adcSetup(void) {
 	SysCtlADCSpeedSet(SYSCTL_ADCSPEED_500KSPS); // specify 500ksps
 	//ADC0_EMUX_R &= ADC_EMUX_EM3_TIMER; // ADC event on Timer3
 	ADCSequenceDisable(ADC0_BASE, 0); // choose ADC sequence 0; disable before configuring
+	ADCSequenceConfigure(ADC0_BASE, 0, ADC_TRIGGER_TIMER, 0); // specify the trigger for Timer
 	ADCSequenceConfigure(ADC0_BASE, 0, ADC_TRIGGER_ALWAYS, 0); // specify the "Always" trigger
 	ADCSequenceStepConfigure(ADC0_BASE, 0, 0,
 			ADC_CTL_IE | ADC_CTL_END | ADC_CTL_CH0); // in the 0th step, sample channel 0
-	// enable interrupt, and make it the end of sequence
+//	ADCReferenceSet(ADC0_BASE, ADC_REF_INT);
+			// enable interrupt, and make it the end of sequence
 	ADCIntEnable(ADC0_BASE, 0); // enable ADC interrupt from sequence 0
 	ADCSequenceEnable(ADC0_BASE, 0); // enable the sequence. it is now sampling
 	IntPrioritySet(INT_ADC0SS0, 0); // 0 = highest priority
 	IntEnable(INT_ADC0SS0); // enable ADC0 interrupts
-}
-
-void adjustableAdcSetup() {
-
 }
 
 /**
@@ -282,7 +307,7 @@ int main(void) {
 		FillFrame(0); // clear frame buffer
 
 		//Process button input
-		char buttonPressed;
+		char buttonPressed = 0;
 		unsigned char success = fifo_get(&buttonPressed);
 		if (success) {
 			switch (buttonPressed) {
@@ -292,10 +317,10 @@ int main(void) {
 			case 2: // "right" button
 				selectionIndex = (selectionIndex == 2) ? 2 : ++selectionIndex;
 				break;
-			case 4: // "left" button
+			case 3: // "left" button
 				selectionIndex = (selectionIndex == 0) ? 0 : --selectionIndex;
 				break;
-			case 8: // "down" button
+			case 4: // "down" button
 				if (selectionIndex == 0) {
 					//Adjust Timescale
 				} else if (selectionIndex == 1) { //Adjust pixel per ADC tick
@@ -310,7 +335,7 @@ int main(void) {
 					triggerLevel -= 0.5 * mvoltsPerDiv;
 				}
 				break;
-			case 16: // "up" button
+			case 5: // "up" button
 				if (selectionIndex == 0) {
 					//Adjust Timescale
 				} else if (selectionIndex == 1) { //Adjust pixel per ADC tick
