@@ -281,8 +281,7 @@ int main(void) {
 	unsigned long count_loaded;
 	unsigned char selectionIndex = 1;
 	unsigned int mvoltsPerDiv = 500;
-
-	float triggerLevel = 1.5;
+	int triggerPixel = 0;
 
 	// initialize the clock generator, from TI qs_eklm3s8962
 	if (REVISION_IS_A2) {
@@ -332,7 +331,7 @@ int main(void) {
 						mvoltsPerDiv = 100;
 					}
 				} else {
-					triggerLevel -= 0.5 * mvoltsPerDiv;
+					triggerPixel -= 2;
 				}
 				break;
 			case 5: // "up" button
@@ -347,7 +346,7 @@ int main(void) {
 						mvoltsPerDiv = 200;
 					}
 				} else {
-					triggerLevel += 0.5 * mvoltsPerDiv;
+					triggerPixel += 2;
 				}
 				break;
 			}
@@ -356,6 +355,7 @@ int main(void) {
 				/ ((float) ((1 << ADC_BITS) * mvoltsPerDiv));
 
 		//Find trigger
+		float triggerLevel = ADC_TO_VOLT(triggerPixel / fScale);
 		int triggerIndex = triggerSearch(triggerLevel, 1);
 
 		//Copy, convert a screen's worth of data into a local buffer of points
