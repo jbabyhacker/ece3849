@@ -62,7 +62,7 @@
 #define TRIGGER_V_LINE 4
 #define TRIGGER_ARROW_WIDTH 4
 #define TRIGGER_ARROW_HEIGHT 2
-
+#define ADJUSTABLE_SAMPLE_RATE
 
 // Globals
 unsigned long g_ulSystemClock; // system clock frequency in Hz
@@ -71,7 +71,7 @@ volatile int g_iADCBufferIndex = ADC_BUFFER_SIZE - 1;  // latest sample index
 volatile unsigned short g_pusADCBuffer[ADC_BUFFER_SIZE]; // circular buffer
 volatile unsigned long g_ulADCErrors = 0; // number of missed ADC deadlines
 volatile unsigned char g_ucTriggerLevel = 0;
-volatile unsigned char g_ucTriggerDirection = 1;
+volatile int g_iTriggerDirection = 1;
 volatile char g_cPortEBufferIndex = BUTTON_BUFFER_SIZE - 1;
 volatile unsigned char g_pucPortEButtonBuffer[BUTTON_BUFFER_SIZE];
 volatile char g_cPortFBufferIndex = BUTTON_BUFFER_SIZE - 1;

@@ -117,7 +117,7 @@ void timerSetup(void) {
 	TimerIntEnable(TIMER0_BASE, TIMER_TIMA_TIMEOUT);
 	TimerEnable(TIMER0_BASE, TIMER_A);
 	// initialize interrupt controller to respond to timer interrupts
-	IntPrioritySet(INT_TIMER0A, 0); // 0 = highest priority, 32 = next lower
+	IntPrioritySet(INT_TIMER0A, 32); // 0 = highest priority, 32 = next lower
 	IntEnable(INT_TIMER0A);
 }
 
@@ -293,7 +293,7 @@ int main(void) {
 		if (success) {
 			switch (buttonPressed) {
 			case 1: // "select" button
-				g_ucTriggerDirection *= -1;
+				g_iTriggerDirection *= -1;
 				break;
 			case 2: // "right" button
 				selectionIndex = (selectionIndex == 2) ? 2 : ++selectionIndex;
@@ -338,7 +338,7 @@ int main(void) {
 
 		//Find trigger
 		float triggerLevel = ADC_TO_VOLT(triggerPixel / fScale);
-		int triggerIndex = triggerSearch(triggerLevel, 1);
+		int triggerIndex = triggerSearch(triggerLevel, g_iTriggerDirection);
 
 		//Copy, convert a screen's worth of data into a local buffer of points
 		Point localADCBuffer[SCREEN_WIDTH];
@@ -406,7 +406,7 @@ int main(void) {
 		usprintf(pcStr, "%02umV", mvoltsPerDiv); // convert voltage scale to string
 		DrawString(53, 0, pcStr, 15, false); // draw string to frame buffer
 
-		drawTrigger(g_ucTriggerDirection);
+		drawTrigger(g_iTriggerDirection);
 
 		int voltToAdc = VOLT_TO_ADC(triggerLevel);
 		float voltToAdcFscale = voltToAdc * fScale;
