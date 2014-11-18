@@ -44,10 +44,13 @@ void ADC_ISR(void) {
 	int buffer_index = ADC_BUFFER_WRAP(g_iADCBufferIndex + 1);
 	g_pusADCBuffer[buffer_index] = ADC_SSFIFO0_R & ADC_SSFIFO0_DATA_M; // read sample from the ADC sequence0 FIFO
 	g_iADCBufferIndex = buffer_index;
+	g_ulAdcSamples++;
 }
 
 void TIMER_0_ISR(void) {
 	TIMER0_ICR_R = TIMER_ICR_TATOCINT;
+	g_ulAdcSampleRate = g_ulAdcSamples;
+	g_ulAdcSamples = 0;
 	unsigned long presses = g_ulButtons;
 
 	if (g_ucPortEButtonFlag || g_ucPortFButtonFlag) {
@@ -88,6 +91,31 @@ void TIMER_0_ISR(void) {
 			g_ucPortEButtonFlag = 0;
 		}
 	}
+}
+
+void setupSampleTimer(unsigned long timeScale) {
+	// configure timer 0
+	unsigned long ulDivider, ulPrescaler;
+	unsigned long desiredFreq = ((12*1000) / timeScale) * 1000;
+	// initialize a general purpose timer for periodic interrupts
+	SysCtlPeripheralEnable(SYSCTL_PERIPH_TIMER1);
+	TimerDisable(TIMER1_BASE, TIMER_BOTH);
+	TimerConfigure(TIMER1_BASE, TIMER_CFG_SPLIT_PAIR | TIMER_CFG_A_PERIODIC);
+	// prescaler for a 16-bit timer
+	ulPrescaler = (g_ulSystemClock / desiredFreq - 1) >> 16;
+	// 16-bit divider (timer load value)
+	ulDivider = g_ulSystemClock / (desiredFreq * (ulPrescaler + 1)) - 1;
+//	TimerLoadSet(TIMER1_BASE, TIMER_A, ulDivider);
+	TimerLoadSet(TIMER1_BASE, TIMER_A, 8);
+	TimerPrescaleSet(TIMER1_BASE, TIMER_A, ulPrescaler);
+	TimerIntEnable(TIMER1_BASE, TIMER_TIMA_TIMEOUT);
+	TimerControlTrigger(TIMER1_BASE, TIMER_A, true);
+
+
+	TimerEnable(TIMER1_BASE, TIMER_A);
+	// initialize interrupt controller to respond to timer interrupts
+	//IntPrioritySet(INT_TIMER1A, 0); // 0 = highest priority, 32 = next lower
+	//IntEnable(INT_TIMER1A);
 }
 
 void timerSetup(void) {
@@ -176,11 +204,11 @@ void buttonSetup(void) {
 
 void adcSetup(void) {
 	SysCtlPeripheralEnable(SYSCTL_PERIPH_ADC0); // enable the ADC
-	SysCtlADCSpeedSet(SYSCTL_ADCSPEED_500KSPS); // specify 500ksps
+	//SysCtlADCSpeedSet(SYSCTL_ADCSPEED_500KSPS); // specify 500ksps
 	//ADC0_EMUX_R &= ADC_EMUX_EM3_TIMER; // ADC event on Timer3
 	ADCSequenceDisable(ADC0_BASE, 0); // choose ADC sequence 0; disable before configuring
 	ADCSequenceConfigure(ADC0_BASE, 0, ADC_TRIGGER_TIMER, 0); // specify the trigger for Timer
-	ADCSequenceConfigure(ADC0_BASE, 0, ADC_TRIGGER_ALWAYS, 0); // specify the "Always" trigger
+	//ADCSequenceConfigure(ADC0_BASE, 0, ADC_TRIGGER_ALWAYS, 0); // specify the "Always" trigger
 	ADCSequenceStepConfigure(ADC0_BASE, 0, 0,
 			ADC_CTL_IE | ADC_CTL_END | ADC_CTL_CH0); // in the 0th step, sample channel 0
 //	ADCReferenceSet(ADC0_BASE, ADC_REF_INT);
@@ -209,18 +237,16 @@ unsigned int triggerSearch(float triggerLevel, int direction) {
 
 	while (1) {
 		//Look for trigger,break loop if found
-		unsigned int curCount = g_pusADCBuffer[searchIndex];		//Accessing two members of a shared data structure non-atomically
-		unsigned int prevCount = g_pusADCBuffer[searchIndex - 1];	//Shared data safe because ISR writes to different part of buffer
+		unsigned int curCount = g_pusADCBuffer[searchIndex];//Accessing two members of a shared data structure non-atomically
+		unsigned int prevCount = g_pusADCBuffer[searchIndex - 1];//Shared data safe because ISR writes to different part of buffer
 		float curVolt = ADC_TO_VOLT(curCount);
 		float prevVolt = ADC_TO_VOLT(prevCount);
 
 		//Is curVolt a trigger?
 		if (((direction == 1) && 					//If looking for rising edge
-				(curVolt >= triggerLevel) &&
-				(prevVolt < triggerLevel))	//And the current and previous voltages are above/equal to and below the trigger
+				(curVolt >= triggerLevel) && (prevVolt < triggerLevel))	//And the current and previous voltages are above/equal to and below the trigger
 		|| ((direction == -1) && 			//Or, if looking for falling edge
-				(curVolt <= triggerLevel) &&
-				(prevVolt > triggerLevel))) { //And the current and previous voltages are below/equal to and above the trigger
+				(curVolt <= triggerLevel) && (prevVolt > triggerLevel))) { //And the current and previous voltages are below/equal to and above the trigger
 			return searchIndex;
 		}
 
@@ -275,11 +301,13 @@ int main(void) {
 					| SYSCTL_XTAL_8MHZ);
 
 	g_ulSystemClock = SysCtlClockGet();
+	g_uiTimescale = 24;
 
 	RIT128x96x4Init(3500000); // initialize the OLED display, from TI qs_eklm3s8962
 
 	adcSetup(); // configure ADC
 	timerSetup(); // configure timer
+	setupSampleTimer(g_uiTimescale);
 	count_unloaded = cpu_load_count();
 	buttonSetup(); // configure buttons
 	IntMasterEnable();
@@ -304,6 +332,8 @@ int main(void) {
 			case 4: // "down" button
 				if (selectionIndex == 0) {
 					//Adjust Timescale
+					g_uiTimescale = (g_uiTimescale == 24) ? 24 : (g_uiTimescale - 1);
+					setupSampleTimer(g_uiTimescale);
 				} else if (selectionIndex == 1) { //Adjust pixel per ADC tick
 					if (mvoltsPerDiv == 1000) {
 						mvoltsPerDiv = 500;
@@ -319,6 +349,8 @@ int main(void) {
 			case 5: // "up" button
 				if (selectionIndex == 0) {
 					//Adjust Timescale
+					g_uiTimescale = (g_uiTimescale == 1000) ? 1000 : (g_uiTimescale + 1000);
+					setupSampleTimer(g_uiTimescale);
 				} else if (selectionIndex == 1) { //Adjust pixel per ADC tick
 					if (mvoltsPerDiv == 500) {
 						mvoltsPerDiv = 1000;
@@ -399,7 +431,7 @@ int main(void) {
 		DrawString(0, 86, pcStr, 15, false); // draw string to frame buffer
 
 		//Draw timescale
-		usprintf(pcStr, "%02uus", g_ucTimescale); // convert timescale to string
+		usprintf(pcStr, "%02uus", g_uiTimescale); // convert timescale to string
 		DrawString(5, 0, pcStr, 15, false); // draw string to frame buffer
 
 		//Draw voltage scale
@@ -410,7 +442,7 @@ int main(void) {
 
 		int voltToAdc = VOLT_TO_ADC(triggerLevel);
 		float voltToAdcFscale = voltToAdc * fScale;
-		int y = (int)((FRAME_SIZE_Y / 2) - voltToAdcFscale);
+		int y = (int) ((FRAME_SIZE_Y / 2) - voltToAdcFscale);
 
 		DrawLine(0, y, FRAME_SIZE_X - 1, y, 10);
 
