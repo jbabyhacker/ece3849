@@ -44,13 +44,13 @@ void ADC_ISR(void) {
 	int buffer_index = ADC_BUFFER_WRAP(g_iADCBufferIndex + 1);
 	g_pusADCBuffer[buffer_index] = ADC_SSFIFO0_R & ADC_SSFIFO0_DATA_M; // read sample from the ADC sequence0 FIFO
 	g_iADCBufferIndex = buffer_index;
-	g_ulAdcSamples++;
+//	g_ulAdcSamples++;
 }
 
 void TIMER_0_ISR(void) {
 	TIMER0_ICR_R = TIMER_ICR_TATOCINT;
-	g_ulAdcSampleRate = g_ulAdcSamples;
-	g_ulAdcSamples = 0;
+//	g_ulAdcSampleRate = g_ulAdcSamples;
+//	g_ulAdcSamples = 0;
 	unsigned long presses = g_ulButtons;
 
 	if (g_ucPortEButtonFlag || g_ucPortFButtonFlag) {
@@ -96,7 +96,7 @@ void TIMER_0_ISR(void) {
 void setupSampleTimer(unsigned long timeScale) {
 	// configure timer 0
 	unsigned long ulDivider, ulPrescaler;
-	unsigned long desiredFreq = ((12*1000) / timeScale) * 1000;
+	unsigned long desiredFreq = ((12 * 1000) / timeScale) * 1000;
 	// initialize a general purpose timer for periodic interrupts
 	SysCtlPeripheralEnable(SYSCTL_PERIPH_TIMER1);
 	TimerIntDisable(TIMER1_BASE, TIMER_TIMA_TIMEOUT);
@@ -111,7 +111,6 @@ void setupSampleTimer(unsigned long timeScale) {
 	TimerPrescaleSet(TIMER1_BASE, TIMER_A, ulPrescaler);
 	TimerIntEnable(TIMER1_BASE, TIMER_TIMA_TIMEOUT);
 	TimerControlTrigger(TIMER1_BASE, TIMER_A, true);
-
 
 	TimerEnable(TIMER1_BASE, TIMER_A);
 	// initialize interrupt controller to respond to timer interrupts
@@ -235,19 +234,21 @@ unsigned int triggerSearch(float triggerLevel, int direction) {
 	unsigned int startIndex = g_iADCBufferIndex - (SCREEN_WIDTH / 2); //start half a screen width from the most recent sample
 	unsigned int searchIndex = startIndex;
 	unsigned int searched = 0; //This avoids doing math dealing with the buffer wrap for deciding when to give up
+//	unsigned int triggerLevelAdc = (((triggerLevel/2.0)+1.5)/3.0)*(1 << ADC_BITS);
+	unsigned int triggerLevelAdc = ((int)(triggerLevel*170.667)) + 512;
 
 	while (1) {
 		//Look for trigger,break loop if found
-		unsigned int curCount = g_pusADCBuffer[searchIndex];//Accessing two members of a shared data structure non-atomically
-		unsigned int prevCount = g_pusADCBuffer[searchIndex - 1];//Shared data safe because ISR writes to different part of buffer
-		float curVolt = ADC_TO_VOLT(curCount);
-		float prevVolt = ADC_TO_VOLT(prevCount);
+		unsigned int curCount = g_pusADCBuffer[searchIndex]; //Accessing two members of a shared data structure non-atomically
+		unsigned int prevCount = g_pusADCBuffer[searchIndex - 1]; //Shared data safe because ISR writes to different part of buffer
+//		float curVolt = ADC_TO_VOLT(curCount);
+//		float prevVolt = ADC_TO_VOLT(prevCount);
 
 		//Is curVolt a trigger?
 		if (((direction == 1) && 					//If looking for rising edge
-				(curVolt >= triggerLevel) && (prevVolt < triggerLevel))	//And the current and previous voltages are above/equal to and below the trigger
+				(curCount >= triggerLevelAdc) && (prevCount < triggerLevelAdc))	//And the current and previous voltages are above/equal to and below the trigger
 		|| ((direction == -1) && 			//Or, if looking for falling edge
-				(curVolt <= triggerLevel) && (prevVolt > triggerLevel))) { //And the current and previous voltages are below/equal to and above the trigger
+				(curCount <= triggerLevelAdc) && (prevCount > triggerLevelAdc))) { //And the current and previous voltages are below/equal to and above the trigger
 			return searchIndex;
 		}
 
@@ -333,7 +334,8 @@ int main(void) {
 			case 4: // "down" button
 				if (selectionIndex == 0) {
 					//Adjust Timescale
-					g_uiTimescale = (g_uiTimescale == 24) ? 24 : (g_uiTimescale - 1);
+					g_uiTimescale =
+							(g_uiTimescale == 24) ? 24 : (g_uiTimescale - 1);
 //					adcSetup();
 					setupSampleTimer(g_uiTimescale);
 				} else if (selectionIndex == 1) { //Adjust pixel per ADC tick
@@ -351,7 +353,9 @@ int main(void) {
 			case 5: // "up" button
 				if (selectionIndex == 0) {
 					//Adjust Timescale
-					g_uiTimescale = (g_uiTimescale == 1000) ? 1000 : (g_uiTimescale + 5);
+					g_uiTimescale =
+							(g_uiTimescale == 1000) ?
+									1000 : (g_uiTimescale + 5);
 //					TimerLoadSet(TIMER1_BASE, TIMER_A, g_uiTimescale);
 //					TIMER2_TAILR_R = 0xFFFF0000 & g_uiTimescale;
 //					IntMasterDisable();
@@ -376,7 +380,8 @@ int main(void) {
 				/ ((float) ((1 << ADC_BITS) * mvoltsPerDiv));
 
 		//Find trigger
-		float triggerLevel = ADC_TO_VOLT(triggerPixel / fScale);
+		float triggerLevel = /*ADC_TO_VOLT(*/(3.0 / (1 << ADC_BITS))
+				* (triggerPixel / fScale);
 		int triggerIndex = triggerSearch(triggerLevel, g_iTriggerDirection);
 
 		//Copy, convert a screen's worth of data into a local buffer of points
@@ -389,18 +394,6 @@ int main(void) {
 			localADCBuffer[i] = dataPoint;
 		}
 
-		//Draw points using the cached data
-		int j;
-		for (j = 1; j < SCREEN_WIDTH; j++) {
-			int y0 = FRAME_SIZE_Y / 2
-					- ((localADCBuffer[j - 1].y - ADC_OFFSET) * fScale);
-			int y1 = FRAME_SIZE_Y / 2
-					- ((localADCBuffer[j].y - ADC_OFFSET) * fScale);
-
-			DrawLine(localADCBuffer[j - 1].x, y0, localADCBuffer[j].x, y1,
-					BRIGHT); // draw data points with lines
-		}
-
 		// Decorate screen grids
 		unsigned short k;
 		for (k = 0; k < FRAME_SIZE_X; k += PIXELS_PER_DIV) {
@@ -410,6 +403,19 @@ int main(void) {
 			if (y < 96) {
 				DrawLine(0, y, FRAME_SIZE_X, y, DIM); // draw horizontal gridlines
 			}
+		}
+
+		//Draw points using the cached data
+		int j;
+		for (j = 1; j < SCREEN_WIDTH; j++) {
+			int adcY0 = 2 * (localADCBuffer[j - 1].y - ((1 << ADC_BITS) / 3.0) * (1.5));
+			int adcY1 = 2 * (localADCBuffer[j].y - ((1 << ADC_BITS) / 3.0) * (1.5));
+
+			int y0 = FRAME_SIZE_Y / 2 - ((adcY0 - ADC_OFFSET) * fScale);
+			int y1 = FRAME_SIZE_Y / 2 - ((adcY1 - ADC_OFFSET) * fScale);
+
+			DrawLine(localADCBuffer[j - 1].x, y0, localADCBuffer[j].x, y1,
+					BRIGHT); // draw data points with lines
 		}
 
 		//Draw selector rectangle
@@ -449,7 +455,7 @@ int main(void) {
 
 		int voltToAdc = VOLT_TO_ADC(triggerLevel);
 		float voltToAdcFscale = voltToAdc * fScale;
-		int y = (int) ((FRAME_SIZE_Y / 2) - voltToAdcFscale);
+		int y = (int) ((FRAME_SIZE_Y / 2) - triggerPixel);
 
 		DrawLine(0, y, FRAME_SIZE_X - 1, y, 10);
 

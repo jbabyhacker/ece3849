@@ -42,18 +42,18 @@
 #include "charFifo.h"
 
 //Defines
-#define BUTTON_CLOCK 200 // button scanning interrupt rate in Hz
+#define BUTTON_CLOCK 100 // button scanning interrupt rate in Hz
 #define M_PI 3.14159265358979323846f // Mathematical constant pi
 #define ADC_BUFFER_SIZE 2048 // must be a power of 2
 #define ADC_BUFFER_WRAP(i) ((i) & (ADC_BUFFER_SIZE - 1)) // index wrapping macro
 #define SCREEN_WIDTH 128 // width of OLED screen in pixels
 #define ADC_OFFSET 0//512
-#define VIN_RANGE 3.3
+#define VIN_RANGE 3.0
 #define PIXELS_PER_DIV 12
 #define ADC_BITS 10
 #define BUTTON_BUFFER_SIZE 10
-#define ADC_TO_VOLT(c) (((float)VIN_RANGE / (float)(1 << ADC_BITS)) * (float)(c - ADC_OFFSET))
-#define VOLT_TO_ADC(v) (((float)(1 << ADC_BITS) / (float)VIN_RANGE) * (float)(v)) + ADC_OFFSET
+#define ADC_TO_VOLT(c) (2.0*((((float)VIN_RANGE / (float)(1 << ADC_BITS)) * (float)(c - ADC_OFFSET)) - 1.5))
+#define VOLT_TO_ADC(v) ((((((float)(1 << ADC_BITS) / (float)VIN_RANGE) * (float)(v)) + ADC_OFFSET)/2.0) + 512.0)
 #define BRIGHT 15 // bright pixel level
 #define DIM 2 // dim pixel level
 #define TRIGGER_X_POS 110
