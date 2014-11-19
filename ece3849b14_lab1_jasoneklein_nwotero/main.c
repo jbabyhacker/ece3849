@@ -99,14 +99,15 @@ void setupSampleTimer(unsigned long timeScale) {
 	unsigned long desiredFreq = ((12*1000) / timeScale) * 1000;
 	// initialize a general purpose timer for periodic interrupts
 	SysCtlPeripheralEnable(SYSCTL_PERIPH_TIMER1);
+	TimerIntDisable(TIMER1_BASE, TIMER_TIMA_TIMEOUT);
 	TimerDisable(TIMER1_BASE, TIMER_BOTH);
 	TimerConfigure(TIMER1_BASE, TIMER_CFG_SPLIT_PAIR | TIMER_CFG_A_PERIODIC);
 	// prescaler for a 16-bit timer
 	ulPrescaler = (g_ulSystemClock / desiredFreq - 1) >> 16;
 	// 16-bit divider (timer load value)
 	ulDivider = g_ulSystemClock / (desiredFreq * (ulPrescaler + 1)) - 1;
-//	TimerLoadSet(TIMER1_BASE, TIMER_A, ulDivider);
-	TimerLoadSet(TIMER1_BASE, TIMER_A, 8);
+	TimerLoadSet(TIMER1_BASE, TIMER_A, ulDivider);
+//	TimerLoadSet(TIMER1_BASE, TIMER_A, 8);
 	TimerPrescaleSet(TIMER1_BASE, TIMER_A, ulPrescaler);
 	TimerIntEnable(TIMER1_BASE, TIMER_TIMA_TIMEOUT);
 	TimerControlTrigger(TIMER1_BASE, TIMER_A, true);
@@ -204,7 +205,7 @@ void buttonSetup(void) {
 
 void adcSetup(void) {
 	SysCtlPeripheralEnable(SYSCTL_PERIPH_ADC0); // enable the ADC
-	//SysCtlADCSpeedSet(SYSCTL_ADCSPEED_500KSPS); // specify 500ksps
+	SysCtlADCSpeedSet(SYSCTL_ADCSPEED_500KSPS); // specify 500ksps
 	//ADC0_EMUX_R &= ADC_EMUX_EM3_TIMER; // ADC event on Timer3
 	ADCSequenceDisable(ADC0_BASE, 0); // choose ADC sequence 0; disable before configuring
 	ADCSequenceConfigure(ADC0_BASE, 0, ADC_TRIGGER_TIMER, 0); // specify the trigger for Timer
@@ -333,6 +334,7 @@ int main(void) {
 				if (selectionIndex == 0) {
 					//Adjust Timescale
 					g_uiTimescale = (g_uiTimescale == 24) ? 24 : (g_uiTimescale - 1);
+//					adcSetup();
 					setupSampleTimer(g_uiTimescale);
 				} else if (selectionIndex == 1) { //Adjust pixel per ADC tick
 					if (mvoltsPerDiv == 1000) {
@@ -349,8 +351,13 @@ int main(void) {
 			case 5: // "up" button
 				if (selectionIndex == 0) {
 					//Adjust Timescale
-					g_uiTimescale = (g_uiTimescale == 1000) ? 1000 : (g_uiTimescale + 1000);
+					g_uiTimescale = (g_uiTimescale == 1000) ? 1000 : (g_uiTimescale + 5);
+//					TimerLoadSet(TIMER1_BASE, TIMER_A, g_uiTimescale);
+//					TIMER2_TAILR_R = 0xFFFF0000 & g_uiTimescale;
+//					IntMasterDisable();
+					adcSetup();
 					setupSampleTimer(g_uiTimescale);
+//					IntMasterEnable();
 				} else if (selectionIndex == 1) { //Adjust pixel per ADC tick
 					if (mvoltsPerDiv == 500) {
 						mvoltsPerDiv = 1000;
