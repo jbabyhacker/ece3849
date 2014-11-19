@@ -42,7 +42,7 @@
 #include "charFifo.h"
 
 //Defines
-#define BUTTON_CLOCK 100 // button scanning interrupt rate in Hz
+#define BUTTON_CLOCK 200 // button scanning interrupt rate in Hz
 #define M_PI 3.14159265358979323846f // Mathematical constant pi
 #define ADC_BUFFER_SIZE 2048 // must be a power of 2
 #define ADC_BUFFER_WRAP(i) ((i) & (ADC_BUFFER_SIZE - 1)) // index wrapping macro

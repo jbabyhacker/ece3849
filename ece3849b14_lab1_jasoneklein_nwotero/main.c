@@ -335,7 +335,7 @@ int main(void) {
 				if (selectionIndex == 0) {
 					//Adjust Timescale
 					g_uiTimescale =
-							(g_uiTimescale == 24) ? 24 : (g_uiTimescale - 1);
+							(g_uiTimescale == 24) ? 24 : (g_uiTimescale - 5);
 //					adcSetup();
 					setupSampleTimer(g_uiTimescale);
 				} else if (selectionIndex == 1) { //Adjust pixel per ADC tick
@@ -390,7 +390,7 @@ int main(void) {
 		for (i = 0; i < SCREEN_WIDTH; i++) {
 			Point dataPoint;
 			dataPoint.x = i;
-			dataPoint.y = g_pusADCBuffer[ADC_BUFFER_WRAP(triggerIndex + i)];
+			dataPoint.y = g_pusADCBuffer[ADC_BUFFER_WRAP(triggerIndex + i - SCREEN_WIDTH/2)];
 			localADCBuffer[i] = dataPoint;
 		}
 
