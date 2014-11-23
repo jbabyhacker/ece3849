@@ -107,7 +107,7 @@ void setupSampleTimer(unsigned long timeScale) {
 	// 16-bit divider (timer load value)
 	ulDivider = g_ulSystemClock / (desiredFreq * (ulPrescaler + 1)) - 1;
 	TimerLoadSet(TIMER1_BASE, TIMER_A, ulDivider);
-//	TimerLoadSet(TIMER1_BASE, TIMER_A, 8);
+//	TimerLoadSet(TIMER1_BASE, TIMER_A, 100);
 	TimerPrescaleSet(TIMER1_BASE, TIMER_A, ulPrescaler);
 	TimerIntEnable(TIMER1_BASE, TIMER_TIMA_TIMEOUT);
 	TimerControlTrigger(TIMER1_BASE, TIMER_A, true);
@@ -335,7 +335,7 @@ int main(void) {
 				if (selectionIndex == 0) {
 					//Adjust Timescale
 					g_uiTimescale =
-							(g_uiTimescale == 24) ? 24 : (g_uiTimescale - 5);
+							(g_uiTimescale == 24) ? 24 : (g_uiTimescale - 2);
 //					adcSetup();
 					setupSampleTimer(g_uiTimescale);
 				} else if (selectionIndex == 1) { //Adjust pixel per ADC tick
@@ -355,7 +355,7 @@ int main(void) {
 					//Adjust Timescale
 					g_uiTimescale =
 							(g_uiTimescale == 1000) ?
-									1000 : (g_uiTimescale + 5);
+									1000 : (g_uiTimescale + 2);
 //					TimerLoadSet(TIMER1_BASE, TIMER_A, g_uiTimescale);
 //					TIMER2_TAILR_R = 0xFFFF0000 & g_uiTimescale;
 //					IntMasterDisable();
