@@ -128,7 +128,7 @@ void timerSetup(void) {
 //	TimerControlTrigger(TIMER3_BASE, TIMER_A, true);
 	TimerDisable(TIMER3_BASE, TIMER_BOTH);
 	TimerConfigure(TIMER3_BASE, TIMER_CFG_ONE_SHOT);
-	TimerLoadSet(TIMER3_BASE, TIMER_A, g_ulSystemClock / 50 - 1); // 1 sec interval
+	TimerLoadSet(TIMER3_BASE, TIMER_A, g_ulSystemClock / 50 - 1); // 0.02 sec = 20 ms interval
 
 	// configure timer 0
 	unsigned long ulDivider, ulPrescaler;
