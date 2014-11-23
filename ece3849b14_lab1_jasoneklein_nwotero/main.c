@@ -118,41 +118,54 @@ void setupSampleTimer(unsigned long timeScale) {
 	//IntEnable(INT_TIMER1A);
 }
 
+/**
+ * Function: timerSetup
+ * ----------------------------
+ *   This function sets up the timer for polling and debouncing buttons as well as the
+ *   timer used to measure CPU load
+ *
+ *   returns: nothing
+ */
 void timerSetup(void) {
 	IntMasterDisable();
-
-	// configure timer 3
-	// initialize timer 3 in one-shot mode for polled timing
-	SysCtlPeripheralEnable(SYSCTL_PERIPH_TIMER3);
-//	TIMER3_CTL_R &= TIMER_CTL_TAOTE; // Enable timer3_A ADC trigger/
-//	TimerControlTrigger(TIMER3_BASE, TIMER_A, true);
-	TimerDisable(TIMER3_BASE, TIMER_BOTH);
-	TimerConfigure(TIMER3_BASE, TIMER_CFG_ONE_SHOT);
+	//Initialize timer for CPU load measurement
+	SysCtlPeripheralEnable(SYSCTL_PERIPH_TIMER3);	// initialize timer 3 in one-shot mode for polled timing
+	TimerDisable(TIMER3_BASE, TIMER_BOTH);			//Disables the timer
+	TimerConfigure(TIMER3_BASE, TIMER_CFG_ONE_SHOT);	//Configure timer for one shot mode
 	TimerLoadSet(TIMER3_BASE, TIMER_A, g_ulSystemClock / 50 - 1); // 1 sec interval
 
-	// configure timer 0
+	// configure timer for buttons
 	unsigned long ulDivider, ulPrescaler;
 	// initialize a general purpose timer for periodic interrupts
 	SysCtlPeripheralEnable(SYSCTL_PERIPH_TIMER0);
 	TimerDisable(TIMER0_BASE, TIMER_BOTH);
-	TimerConfigure(TIMER0_BASE, TIMER_CFG_SPLIT_PAIR | TIMER_CFG_A_PERIODIC);
-	// prescaler for a 16-bit timer
-	ulPrescaler = (g_ulSystemClock / BUTTON_CLOCK - 1) >> 16;
-	// 16-bit divider (timer load value)
-	ulDivider = g_ulSystemClock / (BUTTON_CLOCK * (ulPrescaler + 1)) - 1;
-	TimerLoadSet(TIMER0_BASE, TIMER_A, ulDivider);
-	TimerPrescaleSet(TIMER0_BASE, TIMER_A, ulPrescaler);
-	TimerIntEnable(TIMER0_BASE, TIMER_TIMA_TIMEOUT);
-	TimerEnable(TIMER0_BASE, TIMER_A);
+	TimerConfigure(TIMER0_BASE, TIMER_CFG_SPLIT_PAIR | TIMER_CFG_A_PERIODIC); //Periodic timer
+
+	ulPrescaler = (g_ulSystemClock / BUTTON_CLOCK - 1) >> 16; // prescaler for a 16-bit timer
+	ulDivider = g_ulSystemClock / (BUTTON_CLOCK * (ulPrescaler + 1)) - 1;// 16-bit divider (timer load value)
+	TimerLoadSet(TIMER0_BASE, TIMER_A, ulDivider);			//Set starting count of timer
+	TimerPrescaleSet(TIMER0_BASE, TIMER_A, ulPrescaler);	//Prescale the timer
+	TimerIntEnable(TIMER0_BASE, TIMER_TIMA_TIMEOUT);		//enable the timer's interrupts
+	TimerEnable(TIMER0_BASE, TIMER_A);						//enable timer peripheral interrupts
 	// initialize interrupt controller to respond to timer interrupts
 	IntPrioritySet(INT_TIMER0A, 32); // 0 = highest priority, 32 = next lower
 	IntEnable(INT_TIMER0A);
 }
 
+/**
+ * Function: cpu_load_count
+ * ----------------------------
+ *   This function counts how many times a while loop can iterate in the time it takes for a
+ *   peripheral timer to count down. This measures CPU load.
+ *
+ *   returns: nothing
+ */
 unsigned long cpu_load_count(void) {
 	unsigned long i = 0;
-	TimerIntClear(TIMER3_BASE, TIMER_TIMA_TIMEOUT);
-	TimerEnable(TIMER3_BASE, TIMER_A); // start one-shot timer
+	TimerIntClear(TIMER3_BASE, TIMER_TIMA_TIMEOUT);	//Clear the timers count
+	TimerEnable(TIMER3_BASE, TIMER_A); 				// start one-shot timer
+	//Count as much as possible in the amount of time it takes
+	//for the counter to count down
 	while (!(TimerIntStatus(TIMER3_BASE, 0) & TIMER_TIMA_TIMEOUT))
 		i++;
 	return i;
@@ -202,17 +215,22 @@ void buttonSetup(void) {
 //	}
 }
 
+/**
+ * Function: adcSetup
+ * ----------------------------
+ *   This function configures the ADC 0 peripheral to convert samples at a speed of 500ksps using the
+ *   sequencer 0 module.  Samples are triggered by a general purpose timer and interrupts are generated
+ *   by the ADC for each sample taken.  These interrupts are of the highest priority
+ *
+ *   returns: nothing
+ */
 void adcSetup(void) {
 	SysCtlPeripheralEnable(SYSCTL_PERIPH_ADC0); // enable the ADC
 	SysCtlADCSpeedSet(SYSCTL_ADCSPEED_500KSPS); // specify 500ksps
-	//ADC0_EMUX_R &= ADC_EMUX_EM3_TIMER; // ADC event on Timer3
 	ADCSequenceDisable(ADC0_BASE, 0); // choose ADC sequence 0; disable before configuring
 	ADCSequenceConfigure(ADC0_BASE, 0, ADC_TRIGGER_TIMER, 0); // specify the trigger for Timer
-	//ADCSequenceConfigure(ADC0_BASE, 0, ADC_TRIGGER_ALWAYS, 0); // specify the "Always" trigger
 	ADCSequenceStepConfigure(ADC0_BASE, 0, 0,
 			ADC_CTL_IE | ADC_CTL_END | ADC_CTL_CH0); // in the 0th step, sample channel 0
-//	ADCReferenceSet(ADC0_BASE, ADC_REF_INT);
-			// enable interrupt, and make it the end of sequence
 	ADCIntEnable(ADC0_BASE, 0); // enable ADC interrupt from sequence 0
 	ADCSequenceEnable(ADC0_BASE, 0); // enable the sequence. it is now sampling
 	IntPrioritySet(INT_ADC0SS0, 0); // 0 = highest priority
@@ -263,6 +281,16 @@ unsigned int triggerSearch(float triggerLevel, int direction) {
 	}
 }
 
+/**
+ * Function: drawTrigger
+ * ----------------------------
+ *   This function draws the trigger icon which depicts the direction of change being used for the
+ *   triggerSearch function
+ *
+ *   direction: the direction of change of a trigger, either (int) +1 for rising or -1 for falling
+ *
+ *   returns: nothing
+ */
 void drawTrigger(int direction) {
 	DrawLine(TRIGGER_X_POS - (direction * TRIGGER_H_LINE),
 			TRIGGER_Y_POS + TRIGGER_V_LINE, TRIGGER_X_POS,
@@ -280,24 +308,23 @@ void drawTrigger(int direction) {
 			TRIGGER_Y_POS, BRIGHT); // draw right side of arrow
 }
 
-float fScale;
 /**
  * Adapted from Lab 0 handout by Professor Gene Bogdanov
  */
 int main(void) {
-	char pcStr[50]; // string buffer
-	float cpu_load;
-	unsigned long count_unloaded;
-	unsigned long count_loaded;
-	unsigned char selectionIndex = 1;
-	unsigned int mvoltsPerDiv = 500;
-	int triggerPixel = 0;
+	char pcStr[50]; 						// string buffer
+	float cpu_load;							// percentage of CPU loaded
+	unsigned long count_unloaded;			// counts of iterable before interrupts are enabled
+	unsigned long count_loaded;				// counts of iterable after interrupts are enabled
+	unsigned char selectionIndex = 1;		// index for selected top-screen gui element
+	unsigned int mvoltsPerDiv = 500;		// miliVolts per division of the screen
+	int triggerPixel = 0;					// The number of pixels from the center of the screen the trigger level is on
+	float fScale;							// scaling factor to map ADC counts to pixels
 
 	// initialize the clock generator, from TI qs_eklm3s8962
 	if (REVISION_IS_A2) {
 		SysCtlLDOSet(SYSCTL_LDO_2_75V);
 	}
-
 	SysCtlClockSet(
 			SYSCTL_SYSDIV_4 | SYSCTL_USE_PLL | SYSCTL_OSC_MAIN
 					| SYSCTL_XTAL_8MHZ);
@@ -305,39 +332,40 @@ int main(void) {
 	g_ulSystemClock = SysCtlClockGet();
 	g_uiTimescale = 24;
 
-	RIT128x96x4Init(3500000); // initialize the OLED display, from TI qs_eklm3s8962
+	// initialize the OLED display, from TI qs_eklm3s8962
+	RIT128x96x4Init(3500000);
 
-	adcSetup(); // configure ADC
-	timerSetup(); // configure timer
-	setupSampleTimer(g_uiTimescale);
-	count_unloaded = cpu_load_count();
-	buttonSetup(); // configure buttons
-	IntMasterEnable();
+	adcSetup(); 						// configure ADC
+	timerSetup(); 						// configure timer
+	setupSampleTimer(g_uiTimescale); 	// configure adjustable timer which triggers ADC samples
+	count_unloaded = cpu_load_count();	// measure the number of iterations a non-loaded system can complete
+	buttonSetup(); 						// configure buttons
+	IntMasterEnable();					// Enable interrupt controller
 
+	// Main program loop
 	while (true) {
-		FillFrame(0); // clear frame buffer
+		FillFrame(0); // clear  OLED frame buffer
 
 		//Process button input
 		char buttonPressed = 0;
-		unsigned char success = fifo_get(&buttonPressed);
-		if (success) {
+		unsigned char success = fifo_get(&buttonPressed); 	//Read the pushed button
+		if (success) {										//If a button was pressed, decide which
 			switch (buttonPressed) {
 			case 1: // "select" button
-				g_iTriggerDirection *= -1;
+				g_iTriggerDirection *= -1;	//Change direction of change for trigger
 				break;
 			case 2: // "right" button
-				selectionIndex = (selectionIndex == 2) ? 2 : ++selectionIndex;
+				selectionIndex = (selectionIndex == 2) ? 2 : ++selectionIndex; //Select gui element to the right, if one exists
 				break;
 			case 3: // "left" button
-				selectionIndex = (selectionIndex == 0) ? 0 : --selectionIndex;
+				selectionIndex = (selectionIndex == 0) ? 0 : --selectionIndex; //Select gui element to the left, if one exists
 				break;
 			case 4: // "down" button
 				if (selectionIndex == 0) {
 					//Adjust Timescale
 					g_uiTimescale =
 							(g_uiTimescale == 24) ? 24 : (g_uiTimescale - 2);
-//					adcSetup();
-					setupSampleTimer(g_uiTimescale);
+					setupSampleTimer(g_uiTimescale); 							//Reset sampling timer
 				} else if (selectionIndex == 1) { //Adjust pixel per ADC tick
 					if (mvoltsPerDiv == 1000) {
 						mvoltsPerDiv = 500;
@@ -347,7 +375,7 @@ int main(void) {
 						mvoltsPerDiv = 100;
 					}
 				} else {
-					triggerPixel -= 2;
+					triggerPixel -= 2;	//Move the trigger line down
 				}
 				break;
 			case 5: // "up" button
@@ -356,13 +384,10 @@ int main(void) {
 					g_uiTimescale =
 							(g_uiTimescale == 1000) ?
 									1000 : (g_uiTimescale + 2);
-//					TimerLoadSet(TIMER1_BASE, TIMER_A, g_uiTimescale);
-//					TIMER2_TAILR_R = 0xFFFF0000 & g_uiTimescale;
-//					IntMasterDisable();
-					adcSetup();
-					setupSampleTimer(g_uiTimescale);
-//					IntMasterEnable();
-				} else if (selectionIndex == 1) { //Adjust pixel per ADC tick
+					adcSetup();									//Reset ADC
+					setupSampleTimer(g_uiTimescale);			//Reset sample timer
+				} else if (selectionIndex == 1) {
+					//Adjust pixel per ADC tick
 					if (mvoltsPerDiv == 500) {
 						mvoltsPerDiv = 1000;
 					} else if (mvoltsPerDiv == 200) {
@@ -371,16 +396,18 @@ int main(void) {
 						mvoltsPerDiv = 200;
 					}
 				} else {
-					triggerPixel += 2;
+					triggerPixel += 2;	//Move trigger line up two pixels
 				}
 				break;
 			}
 		}
+
+		//Determine scaling factor
 		fScale = ((float) (VIN_RANGE * 1000 * PIXELS_PER_DIV))
 				/ ((float) ((1 << ADC_BITS) * mvoltsPerDiv));
 
 		//Find trigger
-		float triggerLevel = /*ADC_TO_VOLT(*/(3.0 / (1 << ADC_BITS))
+		float triggerLevel = (3.0 / (1 << ADC_BITS))
 				* (triggerPixel / fScale);
 		int triggerIndex = triggerSearch(triggerLevel, g_iTriggerDirection);
 
@@ -408,14 +435,15 @@ int main(void) {
 		//Draw points using the cached data
 		int j;
 		for (j = 1; j < SCREEN_WIDTH; j++) {
-			int adcY0 = 2 * (localADCBuffer[j - 1].y - ((1 << ADC_BITS) / 3.0) * (1.5));
-			int adcY1 = 2 * (localADCBuffer[j].y - ((1 << ADC_BITS) / 3.0) * (1.5));
+			int adcY0 = 2 * (localADCBuffer[j - 1].y - ((1 << ADC_BITS) / 3.0) * (1.5)); //Scale previous sample
+			int adcY1 = 2 * (localADCBuffer[j].y - ((1 << ADC_BITS) / 3.0) * (1.5));		//Scale current sample
 
 			int y0 = FRAME_SIZE_Y / 2 - ((adcY0 - ADC_OFFSET) * fScale);
 			int y1 = FRAME_SIZE_Y / 2 - ((adcY1 - ADC_OFFSET) * fScale);
 
+			// draw data points with lines
 			DrawLine(localADCBuffer[j - 1].x, y0, localADCBuffer[j].x, y1,
-					BRIGHT); // draw data points with lines
+					BRIGHT);
 		}
 
 		//Draw selector rectangle
@@ -437,6 +465,8 @@ int main(void) {
 		count_loaded = cpu_load_count();
 		cpu_load = 1.0 - (float) count_loaded / count_unloaded; // compute CPU load
 
+		//In order to have the decimal value drawn to the screen, the whole and fractional parts
+		//need to be extracted from the floating point number
 		unsigned int whole = (int) (cpu_load * 100);
 		unsigned int frac = (int) (cpu_load * 1000 - whole * 10);
 
@@ -451,12 +481,11 @@ int main(void) {
 		usprintf(pcStr, "%02umV", mvoltsPerDiv); // convert voltage scale to string
 		DrawString(53, 0, pcStr, 15, false); // draw string to frame buffer
 
+		//Draw trigger icon and trigger line
 		drawTrigger(g_iTriggerDirection);
-
 		int voltToAdc = VOLT_TO_ADC(triggerLevel);
 		float voltToAdcFscale = voltToAdc * fScale;
 		int y = (int) ((FRAME_SIZE_Y / 2) - triggerPixel);
-
 		DrawLine(0, y, FRAME_SIZE_X - 1, y, 10);
 
 		// copy frame to the OLED screen
