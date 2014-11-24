@@ -16,17 +16,25 @@ void TimerISR(void) {
 	TIMER3_ICR_R = TIMER_ICR_TATOCINT; // clear interrupt flag
 }
 
+/**
+ * Port E Button Interrupt Service Routine. Sets a flag
+ * that is reset by TIMER_0_ISR()
+ */
 void PortE_Button_ISR(void) {
 	GPIO_PORTE_ICR_R = GPIO_ICR_GPIO_M; // clear Port E interrupt flag
 	if (!g_ucPortEButtonFlag) {
-		g_ucPortEButtonFlag = 1;
+		g_ucPortEButtonFlag = 1; // set port E button flag
 	}
 }
 
+/**
+ * Port F Button Interrupt Service Routine. Sets a flag
+ * that is reset by TIMER_0_ISR()
+ */
 void PortF_Button_ISR(void) {
 	GPIO_PORTF_ICR_R = GPIO_ICR_GPIO_M; // clear Port F interrupt flag
 	if (!g_ucPortFButtonFlag) {
-		g_ucPortFButtonFlag = 1;
+		g_ucPortFButtonFlag = 1; // set port F button flag
 	}
 }
 
@@ -44,13 +52,14 @@ void ADC_ISR(void) {
 	int buffer_index = ADC_BUFFER_WRAP(g_iADCBufferIndex + 1);
 	g_pusADCBuffer[buffer_index] = ADC_SSFIFO0_R & ADC_SSFIFO0_DATA_M; // read sample from the ADC sequence0 FIFO
 	g_iADCBufferIndex = buffer_index;
-//	g_ulAdcSamples++;
 }
 
+/**
+ * Timer 0 Interrupt service routine. Polls button flags and
+ * then debounces values read.
+ */
 void TIMER_0_ISR(void) {
-	TIMER0_ICR_R = TIMER_ICR_TATOCINT;
-//	g_ulAdcSampleRate = g_ulAdcSamples;
-//	g_ulAdcSamples = 0;
+	TIMER0_ICR_R = TIMER_ICR_TATOCINT; // clear interrupt
 	unsigned long presses = g_ulButtons;
 
 	if (g_ucPortEButtonFlag || g_ucPortFButtonFlag) {
@@ -61,61 +70,65 @@ void TIMER_0_ISR(void) {
 				| (~GPIO_PORTE_DATA_R & GPIO_PIN_3) >> 2 // "right" button
 				| (~GPIO_PORTF_DATA_R & GPIO_PIN_1) >> 1); // "select" button
 		presses = ~presses & g_ulButtons; // button press detector
-//		fifo_put(presses);
 
 		//Note, we could make this one statement, but it is expanded for readability
 		//Determine which buttons are pressed
 		if (presses & 1) { // "select" button pressed
-			//			running = !running; // stop the TimerISR() from updating g_ulTime
 			fifo_put(1);
-			g_ucPortFButtonFlag = 0;
+			g_ucPortFButtonFlag = 0; // reset flag
 		}
 
 		if (presses & 2) { // "Right" button pressed
 			fifo_put(2);
-			g_ucPortEButtonFlag = 0;
+			g_ucPortEButtonFlag = 0; // reset flag
 		}
 
 		if (presses & 4) { // "Left" button pressed
 			fifo_put(3);
-			g_ucPortEButtonFlag = 0;
+			g_ucPortEButtonFlag = 0; // reset flag
 		}
 
 		if (presses & 8) { // "Down" button pressed
 			fifo_put(4);
-			g_ucPortEButtonFlag = 0;
+			g_ucPortEButtonFlag = 0; // reset flag
 		}
 
 		if (presses & 16) { // "Up" button pressed
 			fifo_put(5);
-			g_ucPortEButtonFlag = 0;
+			g_ucPortEButtonFlag = 0; // reset flag
 		}
 	}
 }
 
+/**
+ * Function: setupSampleTimer
+ * ----------------------------
+ * Configures Timer1A in order to directly trigger ADC interrupts
+ *
+ * timescale: timescale to be displayed on the screen
+ *
+ * returns: nothing
+ *
+ * Adapted from Lab 0 handout by Professor Gene Bogdanov
+ */
 void setupSampleTimer(unsigned long timeScale) {
 	// configure timer 0
 	unsigned long ulDivider, ulPrescaler;
-	unsigned long desiredFreq = ((12 * 1000) / timeScale) * 1000;
+	unsigned long desiredFreq = ((12 * 1000) / timeScale) * 1000; // calculate desired frequency from time scale
 	// initialize a general purpose timer for periodic interrupts
-	SysCtlPeripheralEnable(SYSCTL_PERIPH_TIMER1);
-	TimerIntDisable(TIMER1_BASE, TIMER_TIMA_TIMEOUT);
-	TimerDisable(TIMER1_BASE, TIMER_BOTH);
+	SysCtlPeripheralEnable(SYSCTL_PERIPH_TIMER1); // enable Timer1 peripheral
+	TimerIntDisable(TIMER1_BASE, TIMER_TIMA_TIMEOUT); // disable Timer1A interrupt
+	TimerDisable(TIMER1_BASE, TIMER_BOTH); // disable Timer1 A and B
 	TimerConfigure(TIMER1_BASE, TIMER_CFG_SPLIT_PAIR | TIMER_CFG_A_PERIODIC);
 	// prescaler for a 16-bit timer
-	ulPrescaler = (g_ulSystemClock / desiredFreq - 1) >> 16;
+	ulPrescaler = (g_ulSystemClock / desiredFreq - 1) >> 16; // calculate prescaler
 	// 16-bit divider (timer load value)
-	ulDivider = g_ulSystemClock / (desiredFreq * (ulPrescaler + 1)) - 1;
-	TimerLoadSet(TIMER1_BASE, TIMER_A, ulDivider);
-//	TimerLoadSet(TIMER1_BASE, TIMER_A, 100);
-	TimerPrescaleSet(TIMER1_BASE, TIMER_A, ulPrescaler);
-	TimerIntEnable(TIMER1_BASE, TIMER_TIMA_TIMEOUT);
-	TimerControlTrigger(TIMER1_BASE, TIMER_A, true);
-
-	TimerEnable(TIMER1_BASE, TIMER_A);
-	// initialize interrupt controller to respond to timer interrupts
-	//IntPrioritySet(INT_TIMER1A, 0); // 0 = highest priority, 32 = next lower
-	//IntEnable(INT_TIMER1A);
+	ulDivider = g_ulSystemClock / (desiredFreq * (ulPrescaler + 1)) - 1; // calculate load value
+	TimerLoadSet(TIMER1_BASE, TIMER_A, ulDivider); // set load value
+	TimerPrescaleSet(TIMER1_BASE, TIMER_A, ulPrescaler); // set prescaler
+	TimerIntEnable(TIMER1_BASE, TIMER_TIMA_TIMEOUT); // enable timer interrupt
+	TimerControlTrigger(TIMER1_BASE, TIMER_A, true); // Set this timer as a trigger, so that the ADC can be trigger by it
+	TimerEnable(TIMER1_BASE, TIMER_A); // enable the timer
 }
 
 /**
@@ -130,11 +143,10 @@ void timerSetup(void) {
 	IntMasterDisable();
 
 	//Initialize timer for CPU load measurement
-	SysCtlPeripheralEnable(SYSCTL_PERIPH_TIMER3);	// initialize timer 3 in one-shot mode for polled timing
+	SysCtlPeripheralEnable(SYSCTL_PERIPH_TIMER3);// initialize timer 3 in one-shot mode for polled timing
 	TimerDisable(TIMER3_BASE, TIMER_BOTH);			//Disables the timer
-	TimerConfigure(TIMER3_BASE, TIMER_CFG_ONE_SHOT);	//Configure timer for one shot mode
-	TimerLoadSet(TIMER3_BASE, TIMER_A, g_ulSystemClock / 50 - 1); // 1 sec interval
-
+	TimerConfigure(TIMER3_BASE, TIMER_CFG_ONE_SHOT);//Configure timer for one shot mode
+	TimerLoadSet(TIMER3_BASE, TIMER_A, g_ulSystemClock / 50 - 1); // 0.02 sec interval
 
 	// configure timer for buttons
 	unsigned long ulDivider, ulPrescaler;
@@ -144,11 +156,11 @@ void timerSetup(void) {
 	TimerConfigure(TIMER0_BASE, TIMER_CFG_SPLIT_PAIR | TIMER_CFG_A_PERIODIC); //Periodic timer
 
 	ulPrescaler = (g_ulSystemClock / BUTTON_CLOCK - 1) >> 16; // prescaler for a 16-bit timer
-	ulDivider = g_ulSystemClock / (BUTTON_CLOCK * (ulPrescaler + 1)) - 1;// 16-bit divider (timer load value)
-	TimerLoadSet(TIMER0_BASE, TIMER_A, ulDivider);			//Set starting count of timer
+	ulDivider = g_ulSystemClock / (BUTTON_CLOCK * (ulPrescaler + 1)) - 1; // 16-bit divider (timer load value)
+	TimerLoadSet(TIMER0_BASE, TIMER_A, ulDivider);//Set starting count of timer
 	TimerPrescaleSet(TIMER0_BASE, TIMER_A, ulPrescaler);	//Prescale the timer
-	TimerIntEnable(TIMER0_BASE, TIMER_TIMA_TIMEOUT);		//enable the timer's interrupts
-	TimerEnable(TIMER0_BASE, TIMER_A);						//enable timer peripheral interrupts
+	TimerIntEnable(TIMER0_BASE, TIMER_TIMA_TIMEOUT);//enable the timer's interrupts
+	TimerEnable(TIMER0_BASE, TIMER_A);		//enable timer peripheral interrupts
 	// initialize interrupt controller to respond to timer interrupts
 	IntPrioritySet(INT_TIMER0A, 32); // 0 = highest priority, 32 = next lower
 	IntEnable(INT_TIMER0A);
@@ -209,12 +221,6 @@ void buttonSetup(void) {
 	GPIOPinIntEnable(GPIO_PORTE_BASE,
 			GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3); // enable interrupts on Port E
 	GPIOPinIntEnable(GPIO_PORTF_BASE, GPIO_PIN_1); // enable interrupts on Port F
-
-	// initialize button FIFO
-//	unsigned char success = create_fifo(BUTTON_BUFFER_SIZE);
-//	if (!success) {
-//		exit(0);
-//	}
 }
 
 /**
@@ -255,7 +261,7 @@ unsigned int triggerSearch(float triggerLevel, int direction) {
 	unsigned int searchIndex = startIndex;
 	unsigned int searched = 0; //This avoids doing math dealing with the buffer wrap for deciding when to give up
 //	unsigned int triggerLevelAdc = (((triggerLevel/2.0)+1.5)/3.0)*(1 << ADC_BITS);
-	unsigned int triggerLevelAdc = ((int)(triggerLevel*170.667)) + 512;
+	unsigned int triggerLevelAdc = ((int) (triggerLevel * 170.667)) + 512;
 
 	while (1) {
 		//Look for trigger,break loop if found
@@ -267,8 +273,10 @@ unsigned int triggerSearch(float triggerLevel, int direction) {
 		//Is curVolt a trigger?
 		if (((direction == 1) && 					//If looking for rising edge
 				(curCount >= triggerLevelAdc) && (prevCount < triggerLevelAdc))	//And the current and previous voltages are above/equal to and below the trigger
-		|| ((direction == -1) && 			//Or, if looking for falling edge
-				(curCount <= triggerLevelAdc) && (prevCount > triggerLevelAdc))) { //And the current and previous voltages are below/equal to and above the trigger
+				|| ((direction == -1)
+						&& 			//Or, if looking for falling edge
+						(curCount <= triggerLevelAdc)
+						&& (prevCount > triggerLevelAdc))) { //And the current and previous voltages are below/equal to and above the trigger
 			return searchIndex;
 		}
 
@@ -316,12 +324,12 @@ void drawTrigger(int direction) {
 int main(void) {
 	char pcStr[50]; 						// string buffer
 	float cpu_load;							// percentage of CPU loaded
-	unsigned long count_unloaded;			// counts of iterable before interrupts are enabled
-	unsigned long count_loaded;				// counts of iterable after interrupts are enabled
-	unsigned char selectionIndex = 1;		// index for selected top-screen gui element
-	unsigned int mvoltsPerDiv = 500;		// miliVolts per division of the screen
-	int triggerPixel = 0;					// The number of pixels from the center of the screen the trigger level is on
-	float fScale;							// scaling factor to map ADC counts to pixels
+	unsigned long count_unloaded;// counts of iterable before interrupts are enabled
+	unsigned long count_loaded;	// counts of iterable after interrupts are enabled
+	unsigned char selectionIndex = 1;// index for selected top-screen gui element
+	unsigned int mvoltsPerDiv = 500;	// miliVolts per division of the screen
+	int triggerPixel = 0;// The number of pixels from the center of the screen the trigger level is on
+	float fScale;				// scaling factor to map ADC counts to pixels
 
 	// initialize the clock generator, from TI qs_eklm3s8962
 	if (REVISION_IS_A2) {
@@ -339,8 +347,8 @@ int main(void) {
 
 	adcSetup(); 						// configure ADC
 	timerSetup(); 						// configure timer
-	setupSampleTimer(g_uiTimescale); 	// configure adjustable timer which triggers ADC samples
-	count_unloaded = cpu_load_count();	// measure the number of iterations a non-loaded system can complete
+	setupSampleTimer(g_uiTimescale); // configure adjustable timer which triggers ADC samples
+	count_unloaded = cpu_load_count();// measure the number of iterations a non-loaded system can complete
 	buttonSetup(); 						// configure buttons
 	IntMasterEnable();					// Enable interrupt controller
 
@@ -350,11 +358,11 @@ int main(void) {
 
 		//Process button input
 		char buttonPressed = 0;
-		unsigned char success = fifo_get(&buttonPressed); 	//Read the pushed button
-		if (success) {										//If a button was pressed, decide which
+		unsigned char success = fifo_get(&buttonPressed); //Read the pushed button
+		if (success) {					//If a button was pressed, decide which
 			switch (buttonPressed) {
 			case 1: // "select" button
-				g_iTriggerDirection *= -1;	//Change direction of change for trigger
+				g_iTriggerDirection *= -1;//Change direction of change for trigger
 				break;
 			case 2: // "right" button
 				selectionIndex = (selectionIndex == 2) ? 2 : ++selectionIndex; //Select gui element to the right, if one exists
@@ -367,7 +375,7 @@ int main(void) {
 					//Adjust Timescale
 					g_uiTimescale =
 							(g_uiTimescale == 24) ? 24 : (g_uiTimescale - 2);
-					setupSampleTimer(g_uiTimescale); 							//Reset sampling timer
+					setupSampleTimer(g_uiTimescale); 	//Reset sampling timer
 				} else if (selectionIndex == 1) { //Adjust pixel per ADC tick
 					if (mvoltsPerDiv == 1000) {
 						mvoltsPerDiv = 500;
@@ -387,7 +395,7 @@ int main(void) {
 							(g_uiTimescale == 1000) ?
 									1000 : (g_uiTimescale + 2);
 					adcSetup();									//Reset ADC
-					setupSampleTimer(g_uiTimescale);			//Reset sample timer
+					setupSampleTimer(g_uiTimescale);		//Reset sample timer
 				} else if (selectionIndex == 1) {
 					//Adjust pixel per ADC tick
 					if (mvoltsPerDiv == 500) {
@@ -409,8 +417,7 @@ int main(void) {
 				/ ((float) ((1 << ADC_BITS) * mvoltsPerDiv));
 
 		//Find trigger
-		float triggerLevel = (3.0 / (1 << ADC_BITS))
-				* (triggerPixel / fScale);
+		float triggerLevel = (3.0 / (1 << ADC_BITS)) * (triggerPixel / fScale);
 		int triggerIndex = triggerSearch(triggerLevel, g_iTriggerDirection);
 
 		//Copy, convert a screen's worth of data into a local buffer of points
@@ -419,7 +426,8 @@ int main(void) {
 		for (i = 0; i < SCREEN_WIDTH; i++) {
 			Point dataPoint;
 			dataPoint.x = i;
-			dataPoint.y = g_pusADCBuffer[ADC_BUFFER_WRAP(triggerIndex + i - SCREEN_WIDTH/2)];
+			dataPoint.y =
+					g_pusADCBuffer[ADC_BUFFER_WRAP(triggerIndex + i - SCREEN_WIDTH/2)];
 			localADCBuffer[i] = dataPoint;
 		}
 
@@ -437,8 +445,12 @@ int main(void) {
 		//Draw points using the cached data
 		int j;
 		for (j = 1; j < SCREEN_WIDTH; j++) {
-			int adcY0 = 2 * (localADCBuffer[j - 1].y - ((1 << ADC_BITS) / 3.0) * (1.5)); //Scale previous sample
-			int adcY1 = 2 * (localADCBuffer[j].y - ((1 << ADC_BITS) / 3.0) * (1.5));		//Scale current sample
+			int adcY0 =
+					2
+							* (localADCBuffer[j - 1].y
+									- ((1 << ADC_BITS) / 3.0) * (1.5)); //Scale previous sample
+			int adcY1 = 2
+					* (localADCBuffer[j].y - ((1 << ADC_BITS) / 3.0) * (1.5));//Scale current sample
 
 			int y0 = FRAME_SIZE_Y / 2 - ((adcY0 - ADC_OFFSET) * fScale);
 			int y1 = FRAME_SIZE_Y / 2 - ((adcY1 - ADC_OFFSET) * fScale);

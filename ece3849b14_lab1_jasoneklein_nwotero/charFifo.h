@@ -12,6 +12,7 @@
  * Function: create_fifo
  * ----------------------------
  *   This function creates a FIFO data structure of given size. This FIFO can be accessed using the below functions.
+ *   THIS FUNCTION IS NO LONGER NECESSARY. WILL BE REIMPLEMENTED FOR RTOS.
  *
  *   size: the size of the FIFO, as an unsigned short
  *

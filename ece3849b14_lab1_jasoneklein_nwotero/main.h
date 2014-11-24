@@ -47,7 +47,7 @@
 #define ADC_BUFFER_SIZE 2048 // must be a power of 2
 #define ADC_BUFFER_WRAP(i) ((i) & (ADC_BUFFER_SIZE - 1)) // index wrapping macro
 #define SCREEN_WIDTH 128 // width of OLED screen in pixels
-#define ADC_OFFSET 0//512
+#define ADC_OFFSET 0 //512
 #define VIN_RANGE 3.0
 #define PIXELS_PER_DIV 12
 #define ADC_BITS 10
@@ -56,13 +56,12 @@
 #define VOLT_TO_ADC(v) ((((((float)(1 << ADC_BITS) / (float)VIN_RANGE) * (float)(v)) + ADC_OFFSET)/2.0) + 512.0)
 #define BRIGHT 15 // bright pixel level
 #define DIM 2 // dim pixel level
-#define TRIGGER_X_POS 110
-#define TRIGGER_Y_POS 5
-#define TRIGGER_H_LINE 6
-#define TRIGGER_V_LINE 4
-#define TRIGGER_ARROW_WIDTH 4
-#define TRIGGER_ARROW_HEIGHT 2
-#define ADJUSTABLE_SAMPLE_RATE
+#define TRIGGER_X_POS 110 // trigger level symbol, position along x-axis, to center of symbol
+#define TRIGGER_Y_POS 5 // trigger level symbol, position along y-axis, to center of symbol
+#define TRIGGER_H_LINE 6 // trigger level symbol, length of horizontal lines, measured from center of symbol
+#define TRIGGER_V_LINE 4 // trigger level symbol, length of vertical lines, measured from center of symbol
+#define TRIGGER_ARROW_WIDTH 4 // trigger level symbol, arrow distance from center horizontally
+#define TRIGGER_ARROW_HEIGHT 2 // trigger level symbol, arrow distance from center vertically
 
 // Globals
 unsigned long g_ulSystemClock; // system clock frequency in Hz
@@ -72,16 +71,10 @@ volatile unsigned short g_pusADCBuffer[ADC_BUFFER_SIZE]; // circular buffer
 volatile unsigned long g_ulADCErrors = 0; // number of missed ADC deadlines
 volatile unsigned char g_ucTriggerLevel = 0;
 volatile int g_iTriggerDirection = 1;
-volatile char g_cPortEBufferIndex = BUTTON_BUFFER_SIZE - 1;
-volatile unsigned char g_pucPortEButtonBuffer[BUTTON_BUFFER_SIZE];
-volatile char g_cPortFBufferIndex = BUTTON_BUFFER_SIZE - 1;
-volatile unsigned char g_pucPortFButtonBuffer[BUTTON_BUFFER_SIZE];
 volatile unsigned char g_ucPortEButtonFlag = 0;
 volatile unsigned char g_ucPortFButtonFlag = 0;
 volatile unsigned long g_ulTriggerSearchFail = 0;
 const char * const g_ppcVoltageScaleStr[] = {"100 mV", "200 mV", "500 mV", "1 V"};
-volatile unsigned long g_ulAdcSamples = 0;
-volatile unsigned long g_ulAdcSampleRate = 0;
 
 unsigned int g_uiTimescale = 24;
 
