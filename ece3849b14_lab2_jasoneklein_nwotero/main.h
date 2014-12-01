@@ -84,8 +84,10 @@ typedef struct {
 	int y;
 } Point;
 
-void ADC_ISR(void);
+void Button_Poller(void);
+void ADC_Sampler(void);
 void adcSetup(void);
+void buttonSetup(void);
 
 
 #endif /* MAIN_H_ */
