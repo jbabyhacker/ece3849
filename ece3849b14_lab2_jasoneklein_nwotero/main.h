@@ -84,6 +84,7 @@ typedef struct {
 	int y;
 } Point;
 
+void ADC_ISR(void);
 void adcSetup(void);
 
 
