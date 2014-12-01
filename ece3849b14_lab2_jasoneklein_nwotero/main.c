@@ -51,8 +51,10 @@
 	// initialize the OLED display, from TI qs_eklm3s8962
 	RIT128x96x4Init(3500000);
 
+	IntMasterDisable();
 	adcSetup();
 	buttonSetup();
+	IntMasterEnable();
 
 	BIOS_start(); /* enable interrupts and start SYS/BIOS */
 }
@@ -62,8 +64,8 @@
  * circular buffer.  If the ADC FIFO overflows, count as a fault.
  * Adapted from Lab 1 handout by Professor Gene Bogdanov
  */
-void ADC_Sampler(void) {
-	ADC_ISC_R = ADC_ISC_IN0; // clear ADC sequence0 interrupt flag in the ADCISC register
+Void ADC_Sampler() {
+//	ADC_ISC_R = ADC_ISC_IN0; // clear ADC sequence0 interrupt flag in the ADCISC register
 	if (ADC0_OSTAT_R & ADC_OSTAT_OV0) { // check for ADC FIFO overflow
 		g_ulADCErrors++; // count errors - step 1 of the signoff
 		ADC0_OSTAT_R = ADC_OSTAT_OV0; // clear overflow condition
@@ -77,46 +79,46 @@ void ADC_Sampler(void) {
  * Timer 0 Interrupt service routine. Polls button flags and
  * then debounces values read.
  */
-void Button_Poller(void) {
+Void Button_Poller() {
 // 	TIMER0_ICR_R = TIMER_ICR_TATOCINT; // clear interrupt
 	unsigned long presses = g_ulButtons;
 
-	if (g_ucPortEButtonFlag || g_ucPortFButtonFlag) {
-		// button debounce
-		ButtonDebounce((~GPIO_PORTE_DATA_R & GPIO_PIN_0) << 4 // "up" button
-		| (~GPIO_PORTE_DATA_R & GPIO_PIN_1) << 2 // "down" button
-		| (~GPIO_PORTE_DATA_R & GPIO_PIN_2) // "left" button
-				| (~GPIO_PORTE_DATA_R & GPIO_PIN_3) >> 2 // "right" button
-				| (~GPIO_PORTF_DATA_R & GPIO_PIN_1) >> 1); // "select" button
-		presses = ~presses & g_ulButtons; // button press detector
-
-		//Note, we could make this one statement, but it is expanded for readability
-		//Determine which buttons are pressed
-		if (presses & 1) { // "select" button pressed
-			fifo_put(1);
-			g_ucPortFButtonFlag = 0; // reset flag
-		}
-
-		if (presses & 2) { // "Right" button pressed
-			fifo_put(2);
-			g_ucPortEButtonFlag = 0; // reset flag
-		}
-
-		if (presses & 4) { // "Left" button pressed
-			fifo_put(3);
-			g_ucPortEButtonFlag = 0; // reset flag
-		}
-
-		if (presses & 8) { // "Down" button pressed
-			fifo_put(4);
-			g_ucPortEButtonFlag = 0; // reset flag
-		}
-
-		if (presses & 16) { // "Up" button pressed
-			fifo_put(5);
-			g_ucPortEButtonFlag = 0; // reset flag
-		}
-	}
+//	if (g_ucPortEButtonFlag || g_ucPortFButtonFlag) {
+//		// button debounce
+//		ButtonDebounce((~GPIO_PORTE_DATA_R & GPIO_PIN_0) << 4 // "up" button
+//		| (~GPIO_PORTE_DATA_R & GPIO_PIN_1) << 2 // "down" button
+//		| (~GPIO_PORTE_DATA_R & GPIO_PIN_2) // "left" button
+//				| (~GPIO_PORTE_DATA_R & GPIO_PIN_3) >> 2 // "right" button
+//				| (~GPIO_PORTF_DATA_R & GPIO_PIN_1) >> 1); // "select" button
+//		presses = ~presses & g_ulButtons; // button press detector
+//
+//		//Note, we could make this one statement, but it is expanded for readability
+//		//Determine which buttons are pressed
+//		if (presses & 1) { // "select" button pressed
+//			fifo_put(1);
+//			g_ucPortFButtonFlag = 0; // reset flag
+//		}
+//
+//		if (presses & 2) { // "Right" button pressed
+//			fifo_put(2);
+//			g_ucPortEButtonFlag = 0; // reset flag
+//		}
+//
+//		if (presses & 4) { // "Left" button pressed
+//			fifo_put(3);
+//			g_ucPortEButtonFlag = 0; // reset flag
+//		}
+//
+//		if (presses & 8) { // "Down" button pressed
+//			fifo_put(4);
+//			g_ucPortEButtonFlag = 0; // reset flag
+//		}
+//
+//		if (presses & 16) { // "Up" button pressed
+//			fifo_put(5);
+//			g_ucPortEButtonFlag = 0; // reset flag
+//		}
+//	}
 }
 
 /**
@@ -128,7 +130,7 @@ void Button_Poller(void) {
  *
  *   returns: nothing
  */
-void adcSetup(void) {
+Void adcSetup(void) {
 	SysCtlPeripheralEnable(SYSCTL_PERIPH_ADC0); // enable the ADC
 	SysCtlADCSpeedSet(SYSCTL_ADCSPEED_500KSPS); // specify 500ksps
 	ADCSequenceDisable(ADC0_BASE, 0); // choose ADC sequence 0; disable before configuring
@@ -136,17 +138,17 @@ void adcSetup(void) {
 	ADCSequenceConfigure(ADC0_BASE, 0, ADC_TRIGGER_ALWAYS, 0);
 	ADCSequenceStepConfigure(ADC0_BASE, 0, 0,
 			ADC_CTL_IE | ADC_CTL_END | ADC_CTL_CH0); // in the 0th step, sample channel 0
-	ADCIntEnable(ADC0_BASE, 0); // enable ADC interrupt from sequence 0
+//	ADCIntEnable(ADC0_BASE, 0); // enable ADC interrupt from sequence 0
 	ADCSequenceEnable(ADC0_BASE, 0); // enable the sequence. it is now sampling
-	IntPrioritySet(INT_ADC0SS0, 0); // 0 = highest priority
-	IntEnable(INT_ADC0SS0); // enable ADC0 interrupts
+//	IntPrioritySet(INT_ADC0SS0, 0); // 0 = highest priority
+//	IntEnable(INT_ADC0SS0); // enable ADC0 interrupts
 }
 
 /**
  * Configures "select", "up", "down", "left", "right" buttons for input
  * Adapted from Lab 0 handout by Professor Gene Bogdanov
  */
-void buttonSetup(void) {
+Void buttonSetup(void) {
 	// configure GPIO used to read the state of the on-board push buttons
 	// configures "up", "down", "left", "right" buttons
 	SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOE);
