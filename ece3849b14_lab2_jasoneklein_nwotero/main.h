@@ -84,10 +84,8 @@ typedef struct {
 	int y;
 } Point;
 
-Void Button_Poller();
-Void ADC_Sampler();
-Void adcSetup(void);
-Void buttonSetup(void);
+Void adcSetup(Void);
+Void buttonSetup(Void);
 
 
 #endif /* MAIN_H_ */

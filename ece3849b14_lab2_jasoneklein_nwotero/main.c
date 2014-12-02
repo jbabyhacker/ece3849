@@ -11,6 +11,7 @@
 #include <ti/sysbios/BIOS.h>
 
 #include <ti/sysbios/knl/Task.h>
+#include <ti/sysbios/knl/Mailbox.h>
 
 #include "main.h"
 
@@ -28,32 +29,32 @@
 /*
  *  ======== main ========
  */Void main() {
-	char pcStr[50]; 						// string buffer
-	float cpu_load;							// percentage of CPU loaded
-	unsigned long count_unloaded;// counts of iterable before interrupts are enabled
-	unsigned long count_loaded;	// counts of iterable after interrupts are enabled
-	unsigned char selectionIndex = 1;// index for selected top-screen gui element
-	unsigned int mvoltsPerDiv = 500;	// miliVolts per division of the screen
-	int triggerPixel = 0;// The number of pixels from the center of the screen the trigger level is on
-	float fScale;				// scaling factor to map ADC counts to pixels
+//	char pcStr[50]; 						// string buffer
+//	float cpu_load;							// percentage of CPU loaded
+//	unsigned long count_unloaded;// counts of iterable before interrupts are enabled
+//	unsigned long count_loaded;	// counts of iterable after interrupts are enabled
+//	unsigned char selectionIndex = 1;// index for selected top-screen gui element
+//	unsigned int mvoltsPerDiv = 500;	// miliVolts per division of the screen
+//	int triggerPixel = 0;// The number of pixels from the center of the screen the trigger level is on
+//	float fScale;				// scaling factor to map ADC counts to pixels
 
-	// initialize the clock generator, from TI qs_eklm3s8962
-	if (REVISION_IS_A2) {
-		SysCtlLDOSet(SYSCTL_LDO_2_75V);
-	}
-	SysCtlClockSet(
-			SYSCTL_SYSDIV_4 | SYSCTL_USE_PLL | SYSCTL_OSC_MAIN
-					| SYSCTL_XTAL_8MHZ);
+// initialize the clock generator, from TI qs_eklm3s8962
+//	if (REVISION_IS_A2) {
+//		SysCtlLDOSet(SYSCTL_LDO_2_75V);
+//	}
+//	SysCtlClockSet(
+//			SYSCTL_SYSDIV_4 | SYSCTL_USE_PLL | SYSCTL_OSC_MAIN
+//					| SYSCTL_XTAL_8MHZ);
+//
+//	g_ulSystemClock = SysCtlClockGet();
+//	g_uiTimescale = 24;
 
-	g_ulSystemClock = SysCtlClockGet();
-	g_uiTimescale = 24;
-
-	// initialize the OLED display, from TI qs_eklm3s8962
-	RIT128x96x4Init(3500000);
+// initialize the OLED display, from TI qs_eklm3s8962
+//	RIT128x96x4Init(3500000);
 
 	IntMasterDisable();
-	adcSetup();
 	buttonSetup();
+	adcSetup();
 	IntMasterEnable();
 
 	BIOS_start(); /* enable interrupts and start SYS/BIOS */
@@ -63,8 +64,7 @@
  * ADC Interrupt service routine. Stores ADC value in the global
  * circular buffer.  If the ADC FIFO overflows, count as a fault.
  * Adapted from Lab 1 handout by Professor Gene Bogdanov
- */
-Void ADC_Sampler() {
+ */Void ADCSampler_Hwi(Void) {
 //	ADC_ISC_R = ADC_ISC_IN0; // clear ADC sequence0 interrupt flag in the ADCISC register
 	if (ADC0_OSTAT_R & ADC_OSTAT_OV0) { // check for ADC FIFO overflow
 		g_ulADCErrors++; // count errors - step 1 of the signoff
@@ -78,47 +78,56 @@ Void ADC_Sampler() {
 /**
  * Timer 0 Interrupt service routine. Polls button flags and
  * then debounces values read.
- */
-Void Button_Poller() {
+ */Void ButtonPoller_Clock(Void) {
 // 	TIMER0_ICR_R = TIMER_ICR_TATOCINT; // clear interrupt
 	unsigned long presses = g_ulButtons;
 
-//	if (g_ucPortEButtonFlag || g_ucPortFButtonFlag) {
-//		// button debounce
-//		ButtonDebounce((~GPIO_PORTE_DATA_R & GPIO_PIN_0) << 4 // "up" button
-//		| (~GPIO_PORTE_DATA_R & GPIO_PIN_1) << 2 // "down" button
-//		| (~GPIO_PORTE_DATA_R & GPIO_PIN_2) // "left" button
-//				| (~GPIO_PORTE_DATA_R & GPIO_PIN_3) >> 2 // "right" button
-//				| (~GPIO_PORTF_DATA_R & GPIO_PIN_1) >> 1); // "select" button
-//		presses = ~presses & g_ulButtons; // button press detector
-//
-//		//Note, we could make this one statement, but it is expanded for readability
-//		//Determine which buttons are pressed
-//		if (presses & 1) { // "select" button pressed
-//			fifo_put(1);
-//			g_ucPortFButtonFlag = 0; // reset flag
-//		}
-//
-//		if (presses & 2) { // "Right" button pressed
-//			fifo_put(2);
-//			g_ucPortEButtonFlag = 0; // reset flag
-//		}
-//
-//		if (presses & 4) { // "Left" button pressed
-//			fifo_put(3);
-//			g_ucPortEButtonFlag = 0; // reset flag
-//		}
-//
-//		if (presses & 8) { // "Down" button pressed
-//			fifo_put(4);
-//			g_ucPortEButtonFlag = 0; // reset flag
-//		}
-//
-//		if (presses & 16) { // "Up" button pressed
-//			fifo_put(5);
-//			g_ucPortEButtonFlag = 0; // reset flag
-//		}
-//	}
+	// button debounce
+	ButtonDebounce((~GPIO_PORTE_DATA_R & GPIO_PIN_0) << 4 // "up" button
+	| (~GPIO_PORTE_DATA_R & GPIO_PIN_1) << 2 // "down" button
+	| (~GPIO_PORTE_DATA_R & GPIO_PIN_2) // "left" button
+			| (~GPIO_PORTE_DATA_R & GPIO_PIN_3) >> 2 // "right" button
+			| (~GPIO_PORTF_DATA_R & GPIO_PIN_1) >> 1); // "select" button
+	presses = ~presses & g_ulButtons; // button press detector
+
+	// presses & 1 == true --> "select" button pressed
+	// presses & 2 == true --> "right" button pressed
+	// presses & 4 == true --> "left" button pressed
+	// presses & 8 == true --> "down" button pressed
+	// presses & 16 == true --> "up" button pressed
+	if (presses & 0x000000FF) {
+		//TODO: Add "presses" to mailbox. Make sure this works
+		Mailbox_post(ButtonMailbox_Handle, &presses, BIOS_NO_WAIT);
+	}
+}
+
+ // UserInput_Task(), Display_Task(), and Waveform_Task() all share one semaphore
+
+Void UserInput_Task(Void) {
+	for (;;) {
+		unsigned long presses;
+		Mailbox_pend(ButtonMailbox_Handle, &presses, BIOS_WAIT_FOREVER);
+		//TODO: Modify oscilloscope settings
+		//TODO: Signal Display_Task() with a semaphore
+	}
+}
+
+Void Display_Task(Void) {
+	for (;;) {
+		//TODO: Pend on sempahore from UserInput_Task() OR UserInput_Task();
+		//TODO: Draw one frame to the OLED screen (controls and waveform)
+		//TODO: Signal Waveform_Task()
+	}
+
+}
+
+Void Waveform_Task(Void) {
+	for(;;) {
+		//TODO: Pend on sempaphore from Display_Task()
+		//TODO: Search for trigger in the ADC buffer
+		//TODO: Copy triggered waveform into waveform buffer
+		//TODO: Signal Display_Task()
+	}
 }
 
 /**
@@ -129,8 +138,7 @@ Void Button_Poller() {
  *   by the ADC for each sample taken.  These interrupts are of the highest priority
  *
  *   returns: nothing
- */
-Void adcSetup(void) {
+ */Void adcSetup(Void) {
 	SysCtlPeripheralEnable(SYSCTL_PERIPH_ADC0); // enable the ADC
 	SysCtlADCSpeedSet(SYSCTL_ADCSPEED_500KSPS); // specify 500ksps
 	ADCSequenceDisable(ADC0_BASE, 0); // choose ADC sequence 0; disable before configuring
@@ -147,8 +155,7 @@ Void adcSetup(void) {
 /**
  * Configures "select", "up", "down", "left", "right" buttons for input
  * Adapted from Lab 0 handout by Professor Gene Bogdanov
- */
-Void buttonSetup(void) {
+ */Void buttonSetup(Void) {
 	// configure GPIO used to read the state of the on-board push buttons
 	// configures "up", "down", "left", "right" buttons
 	SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOE);
