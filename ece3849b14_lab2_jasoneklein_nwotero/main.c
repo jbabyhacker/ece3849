@@ -12,6 +12,7 @@
 
 #include <ti/sysbios/knl/Task.h>
 #include <ti/sysbios/knl/Mailbox.h>
+#include <ti/sysbios/knl/Semaphore.h>
 
 #include "main.h"
 
@@ -39,18 +40,18 @@
 //	float fScale;				// scaling factor to map ADC counts to pixels
 
 // initialize the clock generator, from TI qs_eklm3s8962
-//	if (REVISION_IS_A2) {
-//		SysCtlLDOSet(SYSCTL_LDO_2_75V);
-//	}
-//	SysCtlClockSet(
-//			SYSCTL_SYSDIV_4 | SYSCTL_USE_PLL | SYSCTL_OSC_MAIN
-//					| SYSCTL_XTAL_8MHZ);
+	if (REVISION_IS_A2) {
+		SysCtlLDOSet(SYSCTL_LDO_2_75V);
+	}
+	SysCtlClockSet(
+			SYSCTL_SYSDIV_4 | SYSCTL_USE_PLL | SYSCTL_OSC_MAIN
+					| SYSCTL_XTAL_8MHZ);
 //
 //	g_ulSystemClock = SysCtlClockGet();
 //	g_uiTimescale = 24;
 
 // initialize the OLED display, from TI qs_eklm3s8962
-//	RIT128x96x4Init(3500000);
+	RIT128x96x4Init(3500000);
 
 	IntMasterDisable();
 	buttonSetup();
@@ -97,32 +98,100 @@
 	// presses & 16 == true --> "up" button pressed
 	if (presses & 0x000000FF) {
 		//TODO: Add "presses" to mailbox. Make sure this works
+		//TODO: Use BIOS_NO_WAIT
 		Mailbox_post(ButtonMailbox_Handle, &presses, BIOS_NO_WAIT);
 	}
 }
 
- // UserInput_Task(), Display_Task(), and Waveform_Task() all share one semaphore
+// UserInput_Task(), Display_Task(), and Waveform_Task() all share one semaphore
 
-Void UserInput_Task(Void) {
+Void UserInput_Task(UArg arg0, UArg arg1) {
 	for (;;) {
 		unsigned long presses;
-		Mailbox_pend(ButtonMailbox_Handle, &presses, BIOS_WAIT_FOREVER);
+
+		/*
+		 * I use this approach because purely using Mailbox_pend()
+		 * doesn't work. When an item is added to the Mailbox,
+		 * Mailbox_pend() should continue, but in actuality, it doesn't. WTF
+		 */
+		Int val = Mailbox_getNumPendingMsgs(ButtonMailbox_Handle);
+		if (val > 0) {
+			Mailbox_pend(ButtonMailbox_Handle, &presses, BIOS_WAIT_FOREVER);
+			switch (presses) {
+			case 1: // "select" button pressed
+				g_iTriggerDirection *= -1; //Change direction of change for trigger
+				break;
+			case 2: // "right" button pressed
+				g_ucSelectionIndex =
+						(g_ucSelectionIndex == 2) ? 2 : ++g_ucSelectionIndex; //Select gui element to the right, if one exists
+				break;
+			case 4: // "left" button pressed
+				g_ucSelectionIndex =
+						(g_ucSelectionIndex == 0) ? 0 : --g_ucSelectionIndex; //Select gui element to the left, if one exists
+				break;
+			case 8: // "down" button pressed
+				if (g_ucSelectionIndex == 0) {
+					//Adjust Timescale
+//					g_uiTimescale =
+//							(g_uiTimescale == 24) ? 24 : (g_uiTimescale - 2);
+//					setupSampleTimer(g_uiTimescale); 	//Reset sampling timer
+				} else if (g_ucSelectionIndex == 1) { //Adjust pixel per ADC tick
+					if (g_uiMvoltsPerDiv == 1000) {
+						g_uiMvoltsPerDiv = 500;
+					} else if (g_uiMvoltsPerDiv == 500) {
+						g_uiMvoltsPerDiv = 200;
+					} else if (g_uiMvoltsPerDiv == 200) {
+						g_uiMvoltsPerDiv = 100;
+					}
+				} else {
+					g_iTriggerPixel -= 2;	//Move the trigger line down
+				}
+				break;
+			case 16: // "up" button pressed
+				if (g_ucSelectionIndex == 0) {
+					//Adjust Timescale
+//					g_uiTimescale =
+//							(g_uiTimescale == 1000) ?
+//									1000 : (g_uiTimescale + 2);
+//					adcSetup();									//Reset ADC
+//					setupSampleTimer(g_uiTimescale);		//Reset sample timer
+				} else if (g_ucSelectionIndex == 1) {
+					//Adjust pixel per ADC tick
+					if (g_uiMvoltsPerDiv == 500) {
+						g_uiMvoltsPerDiv = 1000;
+					} else if (g_uiMvoltsPerDiv == 200) {
+						g_uiMvoltsPerDiv = 500;
+					} else if (g_uiMvoltsPerDiv == 100) {
+						g_uiMvoltsPerDiv = 200;
+					}
+				} else {
+					g_iTriggerPixel += 2;	//Move trigger line up two pixels
+				}
+				break;
+			}
+//			Semaphore_post(UserInputWaveformDisplay_Handle);
+			val = 0;
+		}
 		//TODO: Modify oscilloscope settings
 		//TODO: Signal Display_Task() with a semaphore
 	}
 }
 
-Void Display_Task(Void) {
+Void Display_Task(UArg arg0, UArg arg1) {
 	for (;;) {
+//		Int val = Semaphore_getCount(UserInputWaveformDisplay_Handle);
+		if(val > 0) {
+//			Semaphore_pend(UserInputWaveformDisplay_Handle, BIOS_WAIT_FOREVER);
+		}
+
 		//TODO: Pend on sempahore from UserInput_Task() OR UserInput_Task();
 		//TODO: Draw one frame to the OLED screen (controls and waveform)
 		//TODO: Signal Waveform_Task()
 	}
-
 }
 
-Void Waveform_Task(Void) {
-	for(;;) {
+Void Waveform_Task(UArg arg0, UArg arg1) {
+	for (;;) {
 		//TODO: Pend on sempaphore from Display_Task()
 		//TODO: Search for trigger in the ADC buffer
 		//TODO: Copy triggered waveform into waveform buffer

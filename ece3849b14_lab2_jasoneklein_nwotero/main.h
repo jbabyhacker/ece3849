@@ -38,9 +38,6 @@
 //Includes for NULL
 #include "stdlib.h"
 
-//Includes FIFO
-#include "charFifo.h"
-
 //Defines
 #define BUTTON_CLOCK 200 // button scanning interrupt rate in Hz
 #define M_PI 3.14159265358979323846f // Mathematical constant pi
@@ -71,9 +68,10 @@ volatile unsigned short g_pusADCBuffer[ADC_BUFFER_SIZE]; // circular buffer
 volatile unsigned long g_ulADCErrors = 0; // number of missed ADC deadlines
 volatile unsigned char g_ucTriggerLevel = 0;
 volatile int g_iTriggerDirection = 1;
-volatile unsigned char g_ucPortEButtonFlag = 0;
-volatile unsigned char g_ucPortFButtonFlag = 0;
 volatile unsigned long g_ulTriggerSearchFail = 0;
+volatile unsigned char g_ucSelectionIndex = 1; // index for selected top-screen gui element
+volatile unsigned int g_uiMvoltsPerDiv = 500;	// miliVolts per division of the screen
+volatile int g_iTriggerPixel = 0;// The number of pixels from the center of the screen the trigger level is on
 const char * const g_ppcVoltageScaleStr[] = {"100 mV", "200 mV", "500 mV", "1 V"};
 
 unsigned int g_uiTimescale = 24;
