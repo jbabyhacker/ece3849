@@ -239,6 +239,10 @@ Void Waveform_Task(UArg arg0, UArg arg1) {
 	}
 }
 
+Void FFT_Task(UArg arg0, UArg arg1) {
+	Semaphore_pend(FFT_Sem, BIOS_WAIT_FOREVER);
+}
+
 /**
  * Function: adcSetup
  * ----------------------------
