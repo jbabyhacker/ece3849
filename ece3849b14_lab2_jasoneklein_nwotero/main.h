@@ -65,12 +65,13 @@ unsigned long g_ulSystemClock; // system clock frequency in Hz
 volatile unsigned long g_ulTime = 0; // time in hundredths of a second
 volatile int g_iADCBufferIndex = ADC_BUFFER_SIZE - 1;  // latest sample index
 volatile unsigned short g_pusADCBuffer[ADC_BUFFER_SIZE]; // circular buffer
+volatile unsigned short g_pusWaveformBuffer[SCREEN_WIDTH];
 volatile unsigned long g_ulADCErrors = 0; // number of missed ADC deadlines
 volatile unsigned char g_ucTriggerLevel = 0;
 volatile int g_iTriggerDirection = 1;
 volatile unsigned long g_ulTriggerSearchFail = 0;
 volatile unsigned char g_ucSelectionIndex = 1; // index for selected top-screen gui element
-volatile unsigned int g_uiMvoltsPerDiv = 500;	// miliVolts per division of the screen
+volatile unsigned int g_uiMVoltsPerDiv = 500;	// miliVolts per division of the screen
 volatile int g_iTriggerPixel = 0;// The number of pixels from the center of the screen the trigger level is on
 const char * const g_ppcVoltageScaleStr[] = {"100 mV", "200 mV", "500 mV", "1 V"};
 
@@ -84,6 +85,7 @@ typedef struct {
 
 Void adcSetup(Void);
 Void buttonSetup(Void);
+unsigned int triggerSearch(float triggerLevel, int direction);
 
 
 #endif /* MAIN_H_ */
