@@ -46,9 +46,6 @@
 //	g_ulSystemClock = SysCtlClockGet();
 //	g_uiTimescale = 24;
 
-// initialize the OLED display, from TI qs_eklm3s8962
-	RIT128x96x4Init(3500000);
-
 	IntMasterDisable();
 	buttonSetup();
 	adcSetup();
@@ -169,12 +166,12 @@ Void UserInput_Task(UArg arg0, UArg arg1) {
 			break;
 		}
 		//TODO: Modify oscilloscope settings
-		Semaphore_pend(UiWDSd_Sem, BIOS_WAIT_FOREVER);
+//		Semaphore_pend(SdVars_Sem, BIOS_WAIT_FOREVER);
 		g_iTriggerDirection = triggerDirection;
 		g_ucSelectionIndex = selectionIndex;
 		g_uiMVoltsPerDiv = mvoltsPerDiv;
 		g_iTriggerPixel = triggerPixel;
-		Semaphore_post(UiWDSd_Sem);
+//		Semaphore_post(SdVars_Sem);
 
 		//TODO: Signal Display_Task() with a semaphore
 		Semaphore_post(UiWD_Sem);
@@ -184,6 +181,17 @@ Void UserInput_Task(UArg arg0, UArg arg1) {
 }
 
 Void Display_Task(UArg arg0, UArg arg1) {
+	// initialize the OLED display, from TI qs_eklm3s8962
+	RIT128x96x4Init(3500000);
+
+	int triggerDirection;
+	unsigned int mvoltsPerDiv;
+	int triggerPixel;
+	float fScale;
+	unsigned char selectionIndex;
+	float triggerLevel;
+	char pcStr[50]; 						// string buffer
+
 	for (;;) {
 //		Int val = Semaphore_getCount(UserInputWaveformDisplay_Handle);
 //		if(val > 0) {
@@ -191,28 +199,116 @@ Void Display_Task(UArg arg0, UArg arg1) {
 		Semaphore_pend(UiWD_Sem, BIOS_WAIT_FOREVER);
 //		}
 
-		int i = 0;
-		i++;
+		// get shared data variables
+//		Semaphore_pend(SdVars_Sem, BIOS_WAIT_FOREVER);
+		triggerDirection = g_iTriggerDirection;
+		mvoltsPerDiv = g_uiMVoltsPerDiv;
+		triggerPixel = g_iTriggerPixel;
+		fScale = g_fFScale;
+		selectionIndex = g_ucSelectionIndex;
+		triggerLevel = g_fTriggerLevel;
+//		Semaphore_post(SdVars_Sem);
 
 		//TODO: Draw one frame to the OLED screen (controls and waveform)
+		FillFrame(0); // clear  OLED frame buffer
+
+		// Decorate screen grids
+		unsigned short k;
+		for (k = 0; k < FRAME_SIZE_X; k += PIXELS_PER_DIV) {
+			unsigned short x = k + 5;
+			unsigned short y = k;
+			DrawLine(x, 0, x, FRAME_SIZE_Y, DIM); // draw vertical gridlines
+			if (y < 96) {
+				DrawLine(0, y, FRAME_SIZE_X, y, DIM); // draw horizontal gridlines
+			}
+		}
+
+//		Semaphore_pend(SdArrays_Sem, BIOS_WAIT_FOREVER);
+		//Draw points using the cached data
+		int j;
+		for (j = 1; j < SCREEN_WIDTH; j++) {
+			int adcY0 =
+					2
+							* (g_ppWaveformBuffer[j - 1].y
+									- ((1 << ADC_BITS) / 3.0) * (1.5)); //Scale previous sample
+			int adcY1 = 2
+					* (g_ppWaveformBuffer[j].y - ((1 << ADC_BITS) / 3.0) * (1.5)); //Scale current sample
+
+			int y0 = FRAME_SIZE_Y / 2 - ((adcY0 - ADC_OFFSET) * fScale);
+			int y1 = FRAME_SIZE_Y / 2 - ((adcY1 - ADC_OFFSET) * fScale);
+
+			// draw data points with lines
+			DrawLine(g_ppWaveformBuffer[j - 1].x, y0, g_ppWaveformBuffer[j].x, y1,
+					BRIGHT);
+		}
+//		Semaphore_post(SdArrays_Sem);
+
+		//Draw selector rectangle
+		unsigned char x1, x2, y1 = 0, y2 = 7;
+		if (selectionIndex == 0) {
+			x1 = 0;
+			x2 = 30;
+		} else if (selectionIndex == 1) {
+			x1 = 50;
+			x2 = 84;
+		} else {
+			x1 = 100;
+			x2 = 120;
+			y2 = 9;
+		}
+		DrawFilledRectangle(x1, y1, x2, y2, 5);
+
+		//Measure CPU Load
+//		count_loaded = cpu_load_count();
+//		cpu_load = 1.0 - (float) count_loaded / count_unloaded; // compute CPU load
+//
+//		//In order to have the decimal value drawn to the screen, the whole and fractional parts
+//		//need to be extracted from the floating point number
+//		unsigned int whole = (int) (cpu_load * 100);
+//		unsigned int frac = (int) (cpu_load * 1000 - whole * 10);
+//
+//		usprintf(pcStr, "CPU Load: %02u.%01u\%\%", whole, frac); // convert CPU load to string
+//		DrawString(0, 86, pcStr, 15, false); // draw string to frame buffer
+
+		//Draw timescale
+//		usprintf(pcStr, "%02uus", g_uiTimescale); // convert timescale to string
+//		DrawString(5, 0, pcStr, 15, false); // draw string to frame buffer
+//
+//		//Draw voltage scale
+//		usprintf(pcStr, "%02umV", mvoltsPerDiv); // convert voltage scale to string
+//		DrawString(53, 0, pcStr, 15, false); // draw string to frame buffer
+
+		//Draw trigger icon and trigger line
+		drawTrigger(g_iTriggerDirection);
+		int voltToAdc = VOLT_TO_ADC(triggerLevel);
+		float voltToAdcFscale = voltToAdc * fScale;
+		int y = (int) ((FRAME_SIZE_Y / 2) - triggerPixel);
+		DrawLine(0, y, FRAME_SIZE_X - 1, y, 10);
+
+		// copy frame to the OLED screen
+		RIT128x96x4ImageDraw(g_pucFrame, 0, 0, FRAME_SIZE_X, FRAME_SIZE_Y);
+
 		//TODO: Signal Waveform_Task()
+		Semaphore_post(UiWD_Sem);
 	}
 }
 
 Void Waveform_Task(UArg arg0, UArg arg1) {
 	float fScale; // scaling factor to map ADC counts to pixels
+	int triggerDirection;
+	unsigned int mvoltsPerDiv;
+	int triggerPixel;
 
 	for (;;) {
 		//TODO: Pend on sempaphore from Display_Task()
-		Semaphore_post(UiWD_Sem);
+		Semaphore_pend(UiWD_Sem, BIOS_WAIT_FOREVER);
 
 		// get shared data variables
-		Semaphore_pend(UiWDSd_Sem, BIOS_WAIT_FOREVER);
-		int triggerDirection = g_iTriggerDirection;
-		unsigned char selectionIndex = g_ucSelectionIndex;
-		unsigned int mvoltsPerDiv = g_uiMVoltsPerDiv;
-		int triggerPixel = g_iTriggerPixel;
-		Semaphore_post(UiWDSd_Sem);
+//		Semaphore_pend(SdVars_Sem, BIOS_WAIT_FOREVER);
+		triggerDirection = g_iTriggerDirection;
+		mvoltsPerDiv = g_uiMVoltsPerDiv;
+		triggerPixel = g_iTriggerPixel;
+//		Semaphore_post(SdVars_Sem);
 
 		//TODO: Search for trigger in the ADC buffer
 		//Determine scaling factor
@@ -223,19 +319,26 @@ Void Waveform_Task(UArg arg0, UArg arg1) {
 		float triggerLevel = (3.0 / (1 << ADC_BITS)) * (triggerPixel / fScale);
 		int triggerIndex = triggerSearch(triggerLevel, triggerDirection);
 
+//		Semaphore_pend(SdVars_Sem, BIOS_WAIT_FOREVER);
+		g_fFScale = fScale;
+		g_fTriggerLevel = triggerLevel;
+//		Semaphore_post(SdVars_Sem);
+
+		//TODO: Copy triggered waveform into waveform buffer
 		//Copy, convert a screen's worth of data into a local buffer of points
-		Point localADCBuffer[SCREEN_WIDTH];
+//		Semaphore_pend(SdArrays_Sem, BIOS_WAIT_FOREVER);
 		int i;
 		for (i = 0; i < SCREEN_WIDTH; i++) {
 			Point dataPoint;
 			dataPoint.x = i;
 			dataPoint.y =
 					g_pusADCBuffer[ADC_BUFFER_WRAP(triggerIndex + i - SCREEN_WIDTH/2)];
-			localADCBuffer[i] = dataPoint;
+			g_ppWaveformBuffer[i] = dataPoint;
 		}
+//		Semaphore_post(SdArrays_Sem);
 
-		//TODO: Copy triggered waveform into waveform buffer
 		//TODO: Signal Display_Task()
+		Semaphore_post(UiWD_Sem);
 	}
 }
 
@@ -330,4 +433,31 @@ unsigned int triggerSearch(float triggerLevel, int direction) {
 			searched++;
 		}
 	}
+}
+
+/**
+ * Function: drawTrigger
+ * ----------------------------
+ *   This function draws the trigger icon which depicts the direction of change being used for the
+ *   triggerSearch function
+ *
+ *   direction: the direction of change of a trigger, either (int) +1 for rising or -1 for falling
+ *
+ *   returns: nothing
+ */
+Void drawTrigger(int direction) {
+	DrawLine(TRIGGER_X_POS - (direction * TRIGGER_H_LINE),
+			TRIGGER_Y_POS + TRIGGER_V_LINE, TRIGGER_X_POS,
+			TRIGGER_Y_POS + TRIGGER_V_LINE, BRIGHT); // draw bottom horizontal line
+	DrawLine(TRIGGER_X_POS, TRIGGER_Y_POS + TRIGGER_V_LINE, TRIGGER_X_POS,
+			TRIGGER_Y_POS - TRIGGER_V_LINE, BRIGHT); // draw vertical line
+	DrawLine(TRIGGER_X_POS, TRIGGER_Y_POS - TRIGGER_V_LINE,
+			TRIGGER_X_POS + (direction * TRIGGER_H_LINE),
+			TRIGGER_Y_POS - TRIGGER_V_LINE, BRIGHT); // draw top horizontal line
+	DrawLine(TRIGGER_X_POS - TRIGGER_ARROW_WIDTH,
+			TRIGGER_Y_POS + (direction * TRIGGER_ARROW_HEIGHT), TRIGGER_X_POS,
+			TRIGGER_Y_POS, BRIGHT); // draw left side of arrow
+	DrawLine(TRIGGER_X_POS + TRIGGER_ARROW_WIDTH,
+			TRIGGER_Y_POS + (direction * TRIGGER_ARROW_HEIGHT), TRIGGER_X_POS,
+			TRIGGER_Y_POS, BRIGHT); // draw right side of arrow
 }
