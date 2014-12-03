@@ -72,10 +72,8 @@ volatile unsigned long g_ulTime = 0; // time in hundredths of a second
 
 volatile int g_iADCBufferIndex = ADC_BUFFER_SIZE - 1;  // latest sample index
 volatile unsigned short g_pusADCBuffer[ADC_BUFFER_SIZE]; // circular buffer
-<<<<<<< HEAD
-=======
+
 volatile Point g_ppWaveformBuffer[SCREEN_WIDTH];
->>>>>>> da4a33237fd705f642bdf3d151fe3a2c2057b8e1
 volatile unsigned long g_ulADCErrors = 0; // number of missed ADC deadlines
 
 volatile unsigned short g_pusWaveformBuffer[SCREEN_WIDTH];
@@ -92,18 +90,8 @@ const char * const g_ppcVoltageScaleStr[] = {"100 mV", "200 mV", "500 mV", "1 V"
 
 unsigned int g_uiTimescale = 24;
 
-<<<<<<< HEAD
 volatile unsigned short g_pusSpectrumBuffer[SCREEN_WIDTH];
 volatile unsigned char g_spectrumMode = 0;
-
-//Structures
-typedef struct {
-	int x;
-	int y;
-} Point;
-=======
-
->>>>>>> da4a33237fd705f642bdf3d151fe3a2c2057b8e1
 
 Void adcSetup(Void);
 Void buttonSetup(Void);
