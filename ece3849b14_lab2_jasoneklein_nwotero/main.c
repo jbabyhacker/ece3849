@@ -395,7 +395,9 @@ void FFT_Task(UArg arg0, UArg arg1) {
  *   by the ADC for each sample taken.  These interrupts are of the highest priority
  *
  *   returns: nothing
- */void adcSetup(void) {
+
+ */
+void adcSetup(void) {
 	SysCtlPeripheralEnable(SYSCTL_PERIPH_ADC0); // enable the ADC
 	SysCtlADCSpeedSet(SYSCTL_ADCSPEED_500KSPS); // specify 500ksps
 	ADCSequenceDisable(ADC0_BASE, 0); // choose ADC sequence 0; disable before configuring
