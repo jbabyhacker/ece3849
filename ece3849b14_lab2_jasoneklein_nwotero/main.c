@@ -171,17 +171,10 @@ void UserInput_Task(UArg arg0, UArg arg1) {
 			break;
 		}
 		//TODO: Modify oscilloscope settings
-//		Semaphore_pend(SdVars_Sem, BIOS_WAIT_FOREVER);
 		g_iTriggerDirection = triggerDirection;
 		g_ucSelectionIndex = selectionIndex;
 		g_uiMVoltsPerDiv = mvoltsPerDiv;
 		g_iTriggerPixel = triggerPixel;
-//		Semaphore_post(SdVars_Sem);
-
-		//TODO: Signal Display_Task() with a semaphore
-		Semaphore_post(UiWD_Sem);
-//		val = 0;
-//		}
 	}
 }
 
@@ -284,6 +277,8 @@ void Display_Task(UArg arg0, UArg arg1) {
 
 		// copy frame to the OLED screen
 		RIT128x96x4ImageDraw(g_pucFrame, 0, 0, FRAME_SIZE_X, FRAME_SIZE_Y);
+
+		Semaphore_post(Wave_Sem);
 	}
 }
 
@@ -295,7 +290,7 @@ void Waveform_Task(UArg arg0, UArg arg1) {
 
 	for (;;) {
 		//TODO: Pend on sempaphore from Display_Task()
-		//Semaphore_pend(UiWD_Sem, BIOS_WAIT_FOREVER);
+		Semaphore_pend(Wave_Sem, BIOS_WAIT_FOREVER);
 
 		// get shared data variables
 		triggerDirection = g_iTriggerDirection;
@@ -315,29 +310,32 @@ void Waveform_Task(UArg arg0, UArg arg1) {
 		g_fTriggerLevel = triggerLevel;
 
 		//Copy, convert a screen's worth of data into a local buffer of points
+		Point tempBuffer[SCREEN_WIDTH];
 		int i;
 		for (i = 0; i < SCREEN_WIDTH; i++) {
 			Point dataPoint;
 			dataPoint.x = i;
 			dataPoint.y =
 					g_pusADCBuffer[ADC_BUFFER_WRAP(triggerIndex + i - SCREEN_WIDTH/2)];
-			g_ppWaveformBuffer[i] = dataPoint;
+			tempBuffer[i] = dataPoint;
 		}
 
 		int j;
 		for (j = 1; j < SCREEN_WIDTH; j++) {
 			int adcY0 = 2
-					* (g_ppWaveformBuffer[j - 1].y
+					* (tempBuffer[j - 1].y
 							- ((1 << ADC_BITS) / 3.0) * (1.5)); //Scale previous sample
 			int adcY1 =
 					2
-							* (g_ppWaveformBuffer[j].y
+							* (tempBuffer[j].y
 									- ((1 << ADC_BITS) / 3.0) * (1.5)); //Scale current sample
 
 			g_ppWaveformBuffer[j - 1].y = FRAME_SIZE_Y / 2
 					- ((adcY0 - ADC_OFFSET) * fScale);
+			g_ppWaveformBuffer[j-1].x = tempBuffer[j-1].x;
 			g_ppWaveformBuffer[j].y = FRAME_SIZE_Y / 2
 					- ((adcY1 - ADC_OFFSET) * fScale);
+			g_ppWaveformBuffer[j].x = tempBuffer[j].x;
 		}
 
 		if (g_ucSpectrumMode == 0) {
