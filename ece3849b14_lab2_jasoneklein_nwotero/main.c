@@ -95,6 +95,7 @@ void ButtonPoller_Clock(void) {
 	// presses & 16 == true --> "up" button pressed
 	if (presses & 0x000000FF) {
 		//TODO: Add "presses" to mailbox. Make sure this works
+		++g_ucBPPressedCount;
 		Mailbox_post(ButtonMailbox_Handle, &presses, BIOS_NO_WAIT);
 	}
 }
@@ -109,6 +110,7 @@ void UserInput_Task(UArg arg0, UArg arg1) {
 		unsigned long presses;
 
 		Mailbox_pend(ButtonMailbox_Handle, &presses, BIOS_WAIT_FOREVER);
+		++g_ucUiTaskCount;
 
 		switch (presses) {
 		case 1: // "select" button pressed

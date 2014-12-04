@@ -101,6 +101,9 @@ unsigned int g_uiTimescale = 24;
 volatile int g_piSpectrumBuffer[SCREEN_WIDTH];
 volatile unsigned char g_ucSpectrumMode = 0;
 
+volatile unsigned char g_ucBPPressedCount = 0;
+volatile unsigned char g_ucUiTaskCount = 0;
+
 Void adcSetup(Void);
 Void buttonSetup(Void);
 unsigned int triggerSearch(float triggerLevel, int direction);
