@@ -15,7 +15,7 @@
 /*
  *  ======== taskFxn ========
  */
-//Void taskFxn(UArg a0, UArg a1)
+//void taskFxn(UArg a0, UArg a1)
 //{
 //    System_printf("enter taskFxn()\n");
 //
@@ -25,7 +25,7 @@
 //}
 /*
  *  ======== main ========
- */Void main() {
+ */void main() {
 //	char pcStr[50]; 						// string buffer
 //	float cpu_load;							// percentage of CPU loaded
 //	unsigned long count_unloaded;// counts of iterable before interrupts are enabled
@@ -58,8 +58,9 @@
  * ADC Interrupt service routine. Stores ADC value in the global
  * circular buffer.  If the ADC FIFO overflows, count as a fault.
  * Adapted from Lab 1 handout by Professor Gene Bogdanov
- */Void ADCSampler_Hwi(Void) {
-//	ADC_ISC_R = ADC_ISC_IN0; // clear ADC sequence0 interrupt flag in the ADCISC register
+ */
+ void ADCSampler_Hwi(UArg arg0) {
+	ADC_ISC_R = ADC_ISC_IN0; // clear ADC sequence0 interrupt flag in the ADCISC register
 	if (ADC0_OSTAT_R & ADC_OSTAT_OV0) { // check for ADC FIFO overflow
 		g_ulADCErrors++; // count errors - step 1 of the signoff
 		ADC0_OSTAT_R = ADC_OSTAT_OV0; // clear overflow condition
@@ -72,7 +73,7 @@
 /**
  * Timer 0 Interrupt service routine. Polls button flags and
  * then debounces values read.
- */Void ButtonPoller_Clock(Void) {
+ */void ButtonPoller_Clock(void) {
 // 	TIMER0_ICR_R = TIMER_ICR_TATOCINT; // clear interrupt
 	unsigned long presses = g_ulButtons;
 
@@ -97,7 +98,7 @@
 
 // UserInput_Task(), Display_Task(), and Waveform_Task() all share one semaphore
 
-Void UserInput_Task(UArg arg0, UArg arg1) {
+void UserInput_Task(UArg arg0, UArg arg1) {
 	int triggerDirection = 1;
 	unsigned char selectionIndex = 1;
 	unsigned int mvoltsPerDiv = 500;
@@ -180,7 +181,7 @@ Void UserInput_Task(UArg arg0, UArg arg1) {
 	}
 }
 
-Void Display_Task(UArg arg0, UArg arg1) {
+void Display_Task(UArg arg0, UArg arg1) {
 	// initialize the OLED display, from TI qs_eklm3s8962
 	RIT128x96x4Init(3500000);
 
@@ -293,7 +294,7 @@ Void Display_Task(UArg arg0, UArg arg1) {
 	}
 }
 
-Void Waveform_Task(UArg arg0, UArg arg1) {
+void Waveform_Task(UArg arg0, UArg arg1) {
 	float fScale; // scaling factor to map ADC counts to pixels
 	int triggerDirection;
 	unsigned int mvoltsPerDiv;
@@ -354,7 +355,8 @@ Void FFT_Task(UArg arg0, UArg arg1) {
  *   by the ADC for each sample taken.  These interrupts are of the highest priority
  *
  *   returns: nothing
- */Void adcSetup(Void) {
+ */
+void adcSetup(void) {
 	SysCtlPeripheralEnable(SYSCTL_PERIPH_ADC0); // enable the ADC
 	SysCtlADCSpeedSet(SYSCTL_ADCSPEED_500KSPS); // specify 500ksps
 	ADCSequenceDisable(ADC0_BASE, 0); // choose ADC sequence 0; disable before configuring
@@ -371,7 +373,7 @@ Void FFT_Task(UArg arg0, UArg arg1) {
 /**
  * Configures "select", "up", "down", "left", "right" buttons for input
  * Adapted from Lab 0 handout by Professor Gene Bogdanov
- */Void buttonSetup(Void) {
+ */void buttonSetup(void) {
 	// configure GPIO used to read the state of the on-board push buttons
 	// configures "up", "down", "left", "right" buttons
 	SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOE);
@@ -445,7 +447,7 @@ unsigned int triggerSearch(float triggerLevel, int direction) {
  *
  *   returns: nothing
  */
-Void drawTrigger(int direction) {
+void drawTrigger(int direction) {
 	DrawLine(TRIGGER_X_POS - (direction * TRIGGER_H_LINE),
 			TRIGGER_Y_POS + TRIGGER_V_LINE, TRIGGER_X_POS,
 			TRIGGER_Y_POS + TRIGGER_V_LINE, BRIGHT); // draw bottom horizontal line
