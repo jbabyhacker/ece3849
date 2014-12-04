@@ -38,6 +38,9 @@
 //Includes for NULL
 #include "stdlib.h"
 
+#include "kiss_fft.h"
+#include "_kiss_fft_guts.h"
+
 //Defines
 #define BUTTON_CLOCK 200 // button scanning interrupt rate in Hz
 #define M_PI 3.14159265358979323846f // Mathematical constant pi
@@ -60,6 +63,9 @@
 #define TRIGGER_ARROW_WIDTH 4 // trigger level symbol, arrow distance from center horizontally
 #define TRIGGER_ARROW_HEIGHT 2 // trigger level symbol, arrow distance from center vertically
 
+#define NFFT 1024 // FFT length
+#define KISS_FFT_CFG_SIZE (sizeof(struct kiss_fft_state)+sizeof(kiss_fft_cpx)*(NFFT-1))
+
 //Structures
 typedef struct {
 	int x;
@@ -80,6 +86,8 @@ volatile unsigned short g_pusWaveformBuffer[SCREEN_WIDTH];
 volatile unsigned char g_ucTriggerLevel = 0;
 volatile int g_iTriggerDirection = 1;
 volatile unsigned long g_ulTriggerSearchFail = 0;
+//unsigned long g_ulCount_unloaded;// counts of iterable before interrupts are enabled
+//float cpu_load;
 
 volatile unsigned char g_ucSelectionIndex = 1; // index for selected top-screen gui element
 volatile unsigned int g_uiMVoltsPerDiv = 500;	// miliVolts per division of the screen
@@ -90,8 +98,8 @@ const char * const g_ppcVoltageScaleStr[] = {"100 mV", "200 mV", "500 mV", "1 V"
 
 unsigned int g_uiTimescale = 24;
 
-volatile unsigned short g_pusSpectrumBuffer[SCREEN_WIDTH];
-volatile unsigned char g_spectrumMode = 0;
+volatile int g_piSpectrumBuffer[SCREEN_WIDTH];
+volatile unsigned char g_ucSpectrumMode = 0;
 
 Void adcSetup(Void);
 Void buttonSetup(Void);
