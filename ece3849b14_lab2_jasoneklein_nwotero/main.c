@@ -29,7 +29,6 @@
 //	char pcStr[50]; 						// string buffer
 //	float cpu_load;							// percentage of CPU loaded
 
-
 //	unsigned char selectionIndex = 1;// index for selected top-screen gui element
 //	unsigned int mvoltsPerDiv = 500;	// miliVolts per division of the screen
 //	int triggerPixel = 0;// The number of pixels from the center of the screen the trigger level is on
@@ -118,10 +117,9 @@ void UserInput_Task(UArg arg0, UArg arg1) {
 				triggerDirection *= -1; //Change direction of change for trigger
 			} else {
 				//Switch between spectrum and waveform
-				if (g_ucSpectrumMode == 0){
+				if (g_ucSpectrumMode == 0) {
 					g_ucSpectrumMode = 1;	//Spectrum
-				}
-				else {
+				} else {
 					g_ucSpectrumMode = 0;	//Waveform
 				}
 			}
@@ -228,9 +226,10 @@ void Display_Task(UArg arg0, UArg arg1) {
 			}
 		} else { //Draw FFT
 			int j;
-			for (j = 2; j < SCREEN_WIDTH-1; j++) {
+			for (j = 2; j < SCREEN_WIDTH - 1; j++) {
 				// draw data points with lines
-				DrawLine(j - 1, g_piSpectrumBuffer[j - 1], j, g_piSpectrumBuffer[j], BRIGHT);
+				DrawLine(j - 1, g_piSpectrumBuffer[j - 1], j,
+						g_piSpectrumBuffer[j], BRIGHT);
 			}
 		}
 
@@ -323,16 +322,12 @@ void Waveform_Task(UArg arg0, UArg arg1) {
 		int j;
 		for (j = 1; j < NFFT; j++) {
 			int adcY0 = 2
-					* (tempBuffer[j - 1].y
-							- ((1 << ADC_BITS) / 3.0) * (1.5)); //Scale previous sample
-			int adcY1 =
-					2
-							* (tempBuffer[j].y
-									- ((1 << ADC_BITS) / 3.0) * (1.5)); //Scale current sample
+					* (tempBuffer[j - 1].y - ((1 << ADC_BITS) / 3.0) * (1.5)); //Scale previous sample
+			int adcY1 = 2 * (tempBuffer[j].y - ((1 << ADC_BITS) / 3.0) * (1.5)); //Scale current sample
 
 			g_ppWaveformBuffer[j - 1].y = FRAME_SIZE_Y / 2
 					- ((adcY0 - ADC_OFFSET) * fScale);
-			g_ppWaveformBuffer[j-1].x = tempBuffer[j-1].x;
+			g_ppWaveformBuffer[j - 1].x = tempBuffer[j - 1].x;
 			g_ppWaveformBuffer[j].y = FRAME_SIZE_Y / 2
 					- ((adcY1 - ADC_OFFSET) * fScale);
 			g_ppWaveformBuffer[j].x = tempBuffer[j].x;
@@ -347,15 +342,16 @@ void Waveform_Task(UArg arg0, UArg arg1) {
 }
 
 void FFT_Task(UArg arg0, UArg arg1) {
+
+	static char kiss_fft_cfg_buffer[KISS_FFT_CFG_SIZE]; // Kiss FFT config memory
+	size_t buffer_size = KISS_FFT_CFG_SIZE;
+	kiss_fft_cfg cfg; // Kiss FFT config
+	static kiss_fft_cpx in[NFFT], out[NFFT]; // complex waveform and spectrum buffers
+	int i;
+	cfg = kiss_fft_alloc(NFFT, 0, kiss_fft_cfg_buffer, &buffer_size); // init Kiss FFT
+
 	for (;;) {
 		Semaphore_pend(FFT_Sem, BIOS_WAIT_FOREVER);
-
-		static char kiss_fft_cfg_buffer[KISS_FFT_CFG_SIZE]; // Kiss FFT config memory
-		size_t buffer_size = KISS_FFT_CFG_SIZE;
-		kiss_fft_cfg cfg; // Kiss FFT config
-		static kiss_fft_cpx in[NFFT], out[NFFT]; // complex waveform and spectrum buffers
-		int i;
-		cfg = kiss_fft_alloc(NFFT, 0, kiss_fft_cfg_buffer, &buffer_size); // init Kiss FFT
 
 		for (i = 0; i < NFFT; i++) { // generate an input waveform
 			in[i].r = g_ppWaveformBuffer[i].y; // real part of waveform
@@ -377,20 +373,11 @@ void FFT_Task(UArg arg0, UArg arg1) {
 		 *
 		 *********************************************************************/
 
-
 		int k;
-		for (j = 0; j < SCREEN_WIDTH; j++){
-//			g_piSpectrumBuffer[j] = /*(int)(log10((*/out[j].i /*- min)+1.001)*7.0 + 10.0)*/;
-//			float sum = 0.0;
-//			for(k = 0; k < 8; k++) {
-//				sum += out[j+k].i;
-//			}
-
-//			g_piSpectrumBuffer[j] = (int)(log10((out[j].i - min)+1.001)*7.0 + 10.0);
-			g_piSpectrumBuffer[j] = log10(powf(out[j].r,2) + powf(out[j].i,2))*-10 + 96;
+		for (j = 0; j < SCREEN_WIDTH; j++) {
+			g_piSpectrumBuffer[j] = log10(powf(out[j].r, 2) + powf(out[j].i, 2))
+					* -10 + 96;
 		}
-
-
 
 		Semaphore_post(Draw_Sem);
 	}
