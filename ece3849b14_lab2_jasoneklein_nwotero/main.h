@@ -38,6 +38,9 @@
 //Includes for NULL
 #include "stdlib.h"
 
+//Includes for float max
+#include "float.h"
+
 #include "kiss_fft.h"
 #include "_kiss_fft_guts.h"
 
@@ -98,7 +101,8 @@ const char * const g_ppcVoltageScaleStr[] = {"100 mV", "200 mV", "500 mV", "1 V"
 
 unsigned int g_uiTimescale = 24;
 
-volatile int g_piSpectrumBuffer[SCREEN_WIDTH];
+//volatile int g_piSpectrumBuffer[SCREEN_WIDTH];
+volatile float g_piSpectrumBuffer[SCREEN_WIDTH];
 volatile unsigned char g_ucSpectrumMode = 0;
 
 volatile unsigned char g_ucBPPressedCount = 0;
@@ -108,6 +112,7 @@ Void adcSetup(Void);
 Void buttonSetup(Void);
 unsigned int triggerSearch(float triggerLevel, int direction);
 Void drawTrigger(int direction);
+
 
 
 #endif /* MAIN_H_ */

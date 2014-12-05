@@ -226,14 +226,14 @@ void Display_Task(UArg arg0, UArg arg1) {
 						g_ppWaveformBuffer[j - 1].y, g_ppWaveformBuffer[j].x,
 						g_ppWaveformBuffer[j].y, BRIGHT);
 			}
-		} else {									//Draw FFT
-			int j;
-			for (j = 1; j < SCREEN_WIDTH; j++) {
-				// draw data points with lines
-				DrawLine(j - 1,
-						g_piSpectrumBuffer[j], j,
-						g_piSpectrumBuffer[j], BRIGHT);
-			}
+		} else { //Draw FFT
+//			int j;
+//			for (j = 1; j < SCREEN_WIDTH; j++) {
+//				// draw data points with lines
+//				DrawLine(j - 1,
+//						g_piSpectrumBuffer[j], j,
+//						g_piSpectrumBuffer[j], BRIGHT);
+//			}
 		}
 
 		//Draw selector rectangle
@@ -365,9 +365,17 @@ void FFT_Task(UArg arg0, UArg arg1) {
 		}
 		kiss_fft(cfg, in, out); // compute FFT
 
+//		float min = FLT_MAX;
 		int j;
-		for (j = 0; j < NFFT; j++){
-			g_piSpectrumBuffer[j] = (int)log10(out[j].i);
+//		for (j = 0; j < SCREEN_WIDTH; j++) {
+//			if(out[j].i < min) {
+//				min = out[j].i;
+//			}
+//		}
+
+		for (j = 0; j < SCREEN_WIDTH; j++){
+//			g_piSpectrumBuffer[j] = /*(int)(log10((*/out[j].i /*- min)+1.001)*7.0 + 10.0)*/;
+			g_piSpectrumBuffer[j] = out[j].i;
 		}
 
 		Semaphore_post(Draw_Sem);

@@ -1,6 +1,6 @@
 #
 # This file was generated based on the configuration script:
-#     C:\Users\Nicholas\Documents\School\ECE 3849\ece3849\ece3849b14_lab2_jasoneklein_nwotero\app.cfg
+#     C:\Users\Jason Klein\Documents\GitHub\ece3849\ece3849b14_lab2_jasoneklein_nwotero\app.cfg
 #
 # This makefile may be included in other makefiles that need to build
 # the libraries containing the compiled source files generated as
@@ -14,7 +14,7 @@
 #
 # The absolute path to the generated source directory (at the time the
 # sources were generated) is:
-#    C:\Users\Nicholas\Documents\School\ECE 3849\ece3849\ece3849b14_lab2_jasoneklein_nwotero\src
+#    C:\Users\Jason Klein\Documents\GitHub\ece3849\ece3849b14_lab2_jasoneklein_nwotero\src
 #
 GEN_SRC_DIR ?= ../src
 
