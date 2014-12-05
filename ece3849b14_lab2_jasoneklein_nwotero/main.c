@@ -227,13 +227,11 @@ void Display_Task(UArg arg0, UArg arg1) {
 						g_ppWaveformBuffer[j].y, BRIGHT);
 			}
 		} else { //Draw FFT
-//			int j;
-//			for (j = 1; j < SCREEN_WIDTH; j++) {
-//				// draw data points with lines
-//				DrawLine(j - 1,
-//						g_piSpectrumBuffer[j], j,
-//						g_piSpectrumBuffer[j], BRIGHT);
-//			}
+			int j;
+			for (j = 2; j < SCREEN_WIDTH-1; j++) {
+				// draw data points with lines
+				DrawLine(j - 1, g_piSpectrumBuffer[j - 1], j, g_piSpectrumBuffer[j], BRIGHT);
+			}
 		}
 
 		//Draw selector rectangle
@@ -306,24 +304,24 @@ void Waveform_Task(UArg arg0, UArg arg1) {
 
 		//Find trigger
 		float triggerLevel = (3.0 / (1 << ADC_BITS)) * (triggerPixel / fScale);
-		int triggerIndex = triggerSearch(triggerLevel, triggerDirection);
+		int triggerIndex = triggerSearch(triggerLevel, triggerDirection, NFFT);
 
 		g_fFScale = fScale;
 		g_fTriggerLevel = triggerLevel;
 
 		//Copy, convert a screen's worth of data into a local buffer of points
-		Point tempBuffer[SCREEN_WIDTH];
+		Point tempBuffer[NFFT];
 		int i;
-		for (i = 0; i < SCREEN_WIDTH; i++) {
+		for (i = 0; i < NFFT; i++) {
 			Point dataPoint;
 			dataPoint.x = i;
 			dataPoint.y =
-					g_pusADCBuffer[ADC_BUFFER_WRAP(triggerIndex + i - SCREEN_WIDTH/2)];
+					g_pusADCBuffer[ADC_BUFFER_WRAP(triggerIndex + i - NFFT/2)];
 			tempBuffer[i] = dataPoint;
 		}
 
 		int j;
-		for (j = 1; j < SCREEN_WIDTH; j++) {
+		for (j = 1; j < NFFT; j++) {
 			int adcY0 = 2
 					* (tempBuffer[j - 1].y
 							- ((1 << ADC_BITS) / 3.0) * (1.5)); //Scale previous sample
@@ -373,10 +371,26 @@ void FFT_Task(UArg arg0, UArg arg1) {
 //			}
 //		}
 
+		/*********************************************************************
+		 * AREAS TO INVESTIGATE:
+		 * - g_ppWaveformBuffer[] is of length 128
+		 *
+		 *********************************************************************/
+
+
+		int k;
 		for (j = 0; j < SCREEN_WIDTH; j++){
 //			g_piSpectrumBuffer[j] = /*(int)(log10((*/out[j].i /*- min)+1.001)*7.0 + 10.0)*/;
-			g_piSpectrumBuffer[j] = out[j].i;
+//			float sum = 0.0;
+//			for(k = 0; k < 8; k++) {
+//				sum += out[j+k].i;
+//			}
+
+//			g_piSpectrumBuffer[j] = (int)(log10((out[j].i - min)+1.001)*7.0 + 10.0);
+			g_piSpectrumBuffer[j] = log10(powf(out[j].r,2) + powf(out[j].i,2))*-10 + 96;
 		}
+
+
 
 		Semaphore_post(Draw_Sem);
 	}
@@ -452,8 +466,8 @@ void buttonSetup(void) {
  *
  *   returns: the index of the trigger, or the index half a buffer from the newest sample if a trigger is not found
  */
-unsigned int triggerSearch(float triggerLevel, int direction) {
-	unsigned int startIndex = g_iADCBufferIndex - (SCREEN_WIDTH / 2); //start half a screen width from the most recent sample
+unsigned int triggerSearch(float triggerLevel, int direction, int samples) {
+	unsigned int startIndex = g_iADCBufferIndex - (samples / 2); //start half a screen width from the most recent sample
 	unsigned int searchIndex = startIndex;
 	unsigned int searched = 0; //This avoids doing math dealing with the buffer wrap for deciding when to give up
 	//	unsigned int triggerLevelAdc = (((triggerLevel/2.0)+1.5)/3.0)*(1 << ADC_BITS);

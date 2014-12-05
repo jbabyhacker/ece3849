@@ -66,13 +66,14 @@
 #define TRIGGER_ARROW_WIDTH 4 // trigger level symbol, arrow distance from center horizontally
 #define TRIGGER_ARROW_HEIGHT 2 // trigger level symbol, arrow distance from center vertically
 
+#define PI 3.14159265358979
 #define NFFT 1024 // FFT length
 #define KISS_FFT_CFG_SIZE (sizeof(struct kiss_fft_state)+sizeof(kiss_fft_cpx)*(NFFT-1))
 
 //Structures
 typedef struct {
-	int x;
-	int y;
+	unsigned short x;
+	unsigned short y;
 } Point;
 
 // Globals
@@ -82,10 +83,12 @@ volatile unsigned long g_ulTime = 0; // time in hundredths of a second
 volatile int g_iADCBufferIndex = ADC_BUFFER_SIZE - 1;  // latest sample index
 volatile unsigned short g_pusADCBuffer[ADC_BUFFER_SIZE]; // circular buffer
 
-volatile Point g_ppWaveformBuffer[SCREEN_WIDTH];
+//volatile Point g_ppWaveformBuffer[SCREEN_WIDTH];
+volatile Point g_ppWaveformBuffer[NFFT];
+//volatile int g_ppWaveformBuffer[NFFT];
 volatile unsigned long g_ulADCErrors = 0; // number of missed ADC deadlines
 
-volatile unsigned short g_pusWaveformBuffer[SCREEN_WIDTH];
+//volatile unsigned short g_pusWaveformBuffer[SCREEN_WIDTH];
 volatile unsigned char g_ucTriggerLevel = 0;
 volatile int g_iTriggerDirection = 1;
 volatile unsigned long g_ulTriggerSearchFail = 0;
@@ -101,8 +104,9 @@ const char * const g_ppcVoltageScaleStr[] = {"100 mV", "200 mV", "500 mV", "1 V"
 
 unsigned int g_uiTimescale = 24;
 
-//volatile int g_piSpectrumBuffer[SCREEN_WIDTH];
-volatile float g_piSpectrumBuffer[SCREEN_WIDTH];
+volatile int g_piSpectrumBuffer[SCREEN_WIDTH];
+//volatile float g_piSpectrumBuffer[SCREEN_WIDTH];
+//volatile float g_piSpectrumBuffer[NFFT/2];
 volatile unsigned char g_ucSpectrumMode = 0;
 
 volatile unsigned char g_ucBPPressedCount = 0;
@@ -110,7 +114,7 @@ volatile unsigned char g_ucUiTaskCount = 0;
 
 Void adcSetup(Void);
 Void buttonSetup(Void);
-unsigned int triggerSearch(float triggerLevel, int direction);
+unsigned int triggerSearch(float triggerLevel, int direction, int samples);
 Void drawTrigger(int direction);
 
 
