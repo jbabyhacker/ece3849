@@ -1,64 +1,39 @@
 /*
- *  ======== main.c ========
+ * main.c
+ *
+ * Authors: Jason Klein and Nicholas Otero
+ * Date: 12/5/2014
+ * ECE 3829 Lab 2
  */
-
-#include <xdc/std.h>
-
-#include <xdc/runtime/Error.h>
-#include <xdc/runtime/System.h>
-#include <xdc/cfg/global.h>
-
-#include <ti/sysbios/BIOS.h>
 
 #include "main.h"
 
-/*
- *  ======== taskFxn ========
- */
-//void taskFxn(UArg a0, UArg a1)
-//{
-//    System_printf("enter taskFxn()\n");
-//
-//    Task_sleep(10);
-//
-//    System_printf("exit taskFxn()\n");
-//}
-/*
- *  ======== main ========
- */void main() {
-//	char pcStr[50]; 						// string buffer
-//	float cpu_load;							// percentage of CPU loaded
-
-//	unsigned char selectionIndex = 1;// index for selected top-screen gui element
-//	unsigned int mvoltsPerDiv = 500;	// miliVolts per division of the screen
-//	int triggerPixel = 0;// The number of pixels from the center of the screen the trigger level is on
-//	float fScale;				// scaling factor to map ADC counts to pixels
-
-// initialize the clock generator, from TI qs_eklm3s8962
+void main() {
+	// initialize the clock generator, from TI qs_eklm3s8962
 	if (REVISION_IS_A2) {
 		SysCtlLDOSet(SYSCTL_LDO_2_75V);
 	}
 	SysCtlClockSet(
 			SYSCTL_SYSDIV_4 | SYSCTL_USE_PLL | SYSCTL_OSC_MAIN
-					| SYSCTL_XTAL_8MHZ);
-//
-//	g_ulSystemClock = SysCtlClockGet();
-//	g_uiTimescale = 24;
+					| SYSCTL_XTAL_8MHZ); // set clock
 
-//	g_ulCount_unloaded = cpu_load_count();
-
-	IntMasterDisable();
-	buttonSetup();
-	adcSetup();
-	IntMasterEnable();
+	IntMasterDisable(); // disable interrupts
+	buttonSetup(); // setup buttons
+	adcSetup(); // setup ADC
+	IntMasterEnable(); // enable interrupts
 
 	BIOS_start(); /* enable interrupts and start SYS/BIOS */
 }
 
 /**
- * ADC Interrupt service routine. Stores ADC value in the global
- * circular buffer.  If the ADC FIFO overflows, count as a fault.
- * Adapted from Lab 1 handout by Professor Gene Bogdanov
+ * Hwi Function: ADCSampler_Hwi
+ * ----------------------------
+ *   Stores ADC value in the global circular buffer.
+ *   If the ADC FIFO overflows, count as a fault.
+ *
+ *   Adapted from Lab 1 handout by Professor Gene Bogdanov
+ *
+ *   returns: nothing
  */
 void ADCSampler_Hwi(void) {
 	ADC_ISC_R = ADC_ISC_IN0; // clear ADC sequence0 interrupt flag in the ADCISC register
@@ -68,15 +43,18 @@ void ADCSampler_Hwi(void) {
 	}
 	int buffer_index = ADC_BUFFER_WRAP(g_iADCBufferIndex + 1);
 	g_pusADCBuffer[buffer_index] = ADC_SSFIFO0_R & ADC_SSFIFO0_DATA_M; // read sample from the ADC sequence0 FIFO
-	g_iADCBufferIndex = buffer_index;
+	g_iADCBufferIndex = buffer_index; // set the new buffer index
 }
 
 /**
- * Timer 0 Interrupt service routine. Polls button flags and
- * then debounces values read.
+ * Clock Function: ButtonPoller_Clock
+ * ----------------------------
+ *   Polls button values and debounces them to determine if
+ *   a button is actually pressed.
+ *
+ *   returns: nothing
  */
 void ButtonPoller_Clock(void) {
-// 	TIMER0_ICR_R = TIMER_ICR_TATOCINT; // clear interrupt
 	unsigned long presses = g_ulButtons;
 
 	// button debounce
@@ -92,29 +70,30 @@ void ButtonPoller_Clock(void) {
 	// presses & 4 == true --> "left" button pressed
 	// presses & 8 == true --> "down" button pressed
 	// presses & 16 == true --> "up" button pressed
-	if (presses & 0x000000FF) {
-		//TODO: Add "presses" to mailbox. Make sure this works
-		++g_ucBPPressedCount;
-		Mailbox_post(ButtonMailbox_Handle, &presses, BIOS_NO_WAIT);
+	if (presses & 0x000000FF) { // if any button is pressed
+		Mailbox_post(ButtonMailbox_Handle, &presses, BIOS_NO_WAIT); // post to ButtonMailbox_Handle mailbox
 	}
 }
 
+/**
+ * Task Function: UserInput_Task
+ * ----------------------------
+ *   Process button data and then change appropriate oscilloscope settings.
+ *   Pends on ButtonMailbox_Handle for ButtonPoller_Clock to add items to this Mailbox.
+ *
+ *   returns: nothing
+ */
 void UserInput_Task(UArg arg0, UArg arg1) {
-	int triggerDirection = 1;
-	unsigned char selectionIndex = 1;
-	unsigned int mvoltsPerDiv = 500;
-	int triggerPixel = 0;
-
 	for (;;) {
 		unsigned long presses;
 
-		Mailbox_pend(ButtonMailbox_Handle, &presses, BIOS_WAIT_FOREVER);
-		++g_ucUiTaskCount;
+		// wait until an item exists in the Mailbox
+		Mailbox_pend(ButtonMailbox_Handle, &presses, BIOS_WAIT_FOREVER); // get user input
 
 		switch (presses) {
 		case 1: // "select" button pressed
-			if (selectionIndex == 2) {
-				triggerDirection *= -1; //Change direction of change for trigger
+			if (g_ucSelectionIndex == 2) {
+				g_iTriggerDirection *= -1; //Change direction of change for trigger
 			} else {
 				//Switch between spectrum and waveform
 				if (g_ucSpectrumMode == 0) {
@@ -125,83 +104,65 @@ void UserInput_Task(UArg arg0, UArg arg1) {
 			}
 			break;
 		case 2: // "right" button pressed
-			selectionIndex = (selectionIndex == 2) ? 2 : ++selectionIndex; //Select gui element to the right, if one exists
+			g_ucSelectionIndex =
+					(g_ucSelectionIndex == 2) ? 2 : ++g_ucSelectionIndex; //Select gui element to the right, if one exists
 			break;
 		case 4: // "left" button pressed
-			selectionIndex = (selectionIndex == 0) ? 0 : --selectionIndex; //Select gui element to the left, if one exists
+			g_ucSelectionIndex =
+					(g_ucSelectionIndex == 0) ? 0 : --g_ucSelectionIndex; //Select gui element to the left, if one exists
 			break;
 		case 8: // "down" button pressed
-			if (selectionIndex == 0) {
+			if (g_ucSelectionIndex == 0) {
 				//Adjust Timescale
-//					g_uiTimescale =
-//							(g_uiTimescale == 24) ? 24 : (g_uiTimescale - 2);
-//					setupSampleTimer(g_uiTimescale); 	//Reset sampling timer
-			} else if (selectionIndex == 1) { //Adjust pixel per ADC tick
-				if (mvoltsPerDiv == 1000) {
-					mvoltsPerDiv = 500;
-				} else if (mvoltsPerDiv == 500) {
-					mvoltsPerDiv = 200;
-				} else if (mvoltsPerDiv == 200) {
-					mvoltsPerDiv = 100;
+			} else if (g_ucSelectionIndex == 1) { //Adjust pixel per ADC tick
+				if (g_uiMVoltsPerDiv == 1000) {
+					g_uiMVoltsPerDiv = 500;
+				} else if (g_uiMVoltsPerDiv == 500) {
+					g_uiMVoltsPerDiv = 200;
+				} else if (g_uiMVoltsPerDiv == 200) {
+					g_uiMVoltsPerDiv = 100;
 				}
 			} else {
-				triggerPixel -= 2;	//Move the trigger line down
+				g_iTriggerPixel -= 2;	//Move the trigger line down
 			}
 			break;
 		case 16: // "up" button pressed
-			if (selectionIndex == 0) {
+			if (g_ucSelectionIndex == 0) {
 				//Adjust Timescale
-//					g_uiTimescale =
-//							(g_uiTimescale == 1000) ?
-//									1000 : (g_uiTimescale + 2);
-//					adcSetup();									//Reset ADC
-//					setupSampleTimer(g_uiTimescale);		//Reset sample timer
-			} else if (selectionIndex == 1) {
+			} else if (g_ucSelectionIndex == 1) {
 				//Adjust pixel per ADC tick
-				if (mvoltsPerDiv == 500) {
-					mvoltsPerDiv = 1000;
-				} else if (mvoltsPerDiv == 200) {
-					mvoltsPerDiv = 500;
-				} else if (mvoltsPerDiv == 100) {
-					mvoltsPerDiv = 200;
+				if (g_uiMVoltsPerDiv == 500) {
+					g_uiMVoltsPerDiv = 1000;
+				} else if (g_uiMVoltsPerDiv == 200) {
+					g_uiMVoltsPerDiv = 500;
+				} else if (g_uiMVoltsPerDiv == 100) {
+					g_uiMVoltsPerDiv = 200;
 				}
 			} else {
-				triggerPixel += 2;	//Move trigger line up two pixels
+				g_iTriggerPixel += 2;	//Move trigger line up two pixels
 			}
 			break;
 		}
-		//TODO: Modify oscilloscope settings
-		g_iTriggerDirection = triggerDirection;
-		g_ucSelectionIndex = selectionIndex;
-		g_uiMVoltsPerDiv = mvoltsPerDiv;
-		g_iTriggerPixel = triggerPixel;
 	}
 }
 
+/**
+ * Task Function: Display_Task
+ * ----------------------------
+ *   Draws waveform, waveform settings, and FFT to the display.
+ *   Pends on Draw_Sem. Upon loop iteration completion, posts to Wave_Sem
+ *
+ *   returns: nothing
+ */
 void Display_Task(UArg arg0, UArg arg1) {
 	// initialize the OLED display, from TI qs_eklm3s8962
 	RIT128x96x4Init(3500000);
 
-	int triggerDirection;
-	unsigned int mvoltsPerDiv;
-	int triggerPixel;
-	float fScale;
-	unsigned char selectionIndex;
-	float triggerLevel;
-	char pcStr[50]; 						// string buffer
+	char pcStr[50]; // string buffer
 
 	for (;;) {
 		Semaphore_pend(Draw_Sem, BIOS_WAIT_FOREVER);
 
-		// get shared data variables
-		triggerDirection = g_iTriggerDirection;
-		mvoltsPerDiv = g_uiMVoltsPerDiv;
-		triggerPixel = g_iTriggerPixel;
-		fScale = g_fFScale;
-		selectionIndex = g_ucSelectionIndex;
-		triggerLevel = g_fTriggerLevel;
-
-		//TODO: Draw one frame to the OLED screen (controls and waveform)
 		FillFrame(0); // clear  OLED frame buffer
 
 		// Decorate screen grids
@@ -215,7 +176,8 @@ void Display_Task(UArg arg0, UArg arg1) {
 			}
 		}
 
-		if (g_ucSpectrumMode == 0) {				//Draw waveform
+		// Draw waveform or FFT
+		if (g_ucSpectrumMode == 0) { //Draw waveform
 			//Draw points using the cached data
 			int j;
 			for (j = 1; j < SCREEN_WIDTH; j++) {
@@ -235,10 +197,10 @@ void Display_Task(UArg arg0, UArg arg1) {
 
 		//Draw selector rectangle
 		unsigned char x1, x2, y1 = 0, y2 = 7;
-		if (selectionIndex == 0) {
+		if (g_ucSelectionIndex == 0) {
 			x1 = 0;
 			x2 = 30;
-		} else if (selectionIndex == 1) {
+		} else if (g_ucSelectionIndex == 1) {
 			x1 = 50;
 			x2 = 84;
 		} else {
@@ -248,30 +210,17 @@ void Display_Task(UArg arg0, UArg arg1) {
 		}
 		DrawFilledRectangle(x1, y1, x2, y2, 5);
 
-//
-//		//In order to have the decimal value drawn to the screen, the whole and fractional parts
-//		//need to be extracted from the floating point number
-//		Semaphore_pend(CPU_Sem, BIOS_WAIT_FOREVER);
-//		unsigned int whole = (int) (cpu_load * 100);
-//		unsigned int frac = (int) (cpu_load * 1000 - whole * 10);
-//		Semaphore_post(CPU_Sem);
-
-//		usprintf(pcStr, "CPU Load: %02u.%01u\%\%", whole, frac); // convert CPU load to string
-//		DrawString(0, 86, pcStr, 15, false); // draw string to frame buffer
-
 		//Draw timescale
 		usprintf(pcStr, "%02uus", g_uiTimescale); // convert timescale to string
 		DrawString(5, 0, pcStr, 15, false); // draw string to frame buffer
-//
-//		//Draw voltage scale
-		usprintf(pcStr, "%02umV", mvoltsPerDiv); // convert voltage scale to string
+
+		//Draw voltage scale
+		usprintf(pcStr, "%02umV", g_uiMVoltsPerDiv); // convert voltage scale to string
 		DrawString(53, 0, pcStr, 15, false); // draw string to frame buffer
 
 		//Draw trigger icon and trigger line
-		drawTrigger(triggerDirection);
-		int voltToAdc = VOLT_TO_ADC(triggerLevel);
-		float voltToAdcFscale = voltToAdc * fScale;
-		int y = (int) ((FRAME_SIZE_Y / 2) - triggerPixel);
+		drawTrigger(g_iTriggerDirection);
+		int y = (int) ((FRAME_SIZE_Y / 2) - g_iTriggerPixel);
 		DrawLine(0, y, FRAME_SIZE_X - 1, y, 10);
 
 		// copy frame to the OLED screen
@@ -281,34 +230,34 @@ void Display_Task(UArg arg0, UArg arg1) {
 	}
 }
 
+/**
+ * Task Function: Waveform_Task
+ * ----------------------------
+ *   Processes ADC buffer, g_pusADCBuffer, and sets g_ppWaveformBuffer for
+ *   Display_Task() and FFT_Task().
+ *   Pends on Wave_Sem. Upon loop iteration completion, posts to
+ *   Draw_Sem or FFT_Sem if FFT mode is disabled or enabled respectively.
+ *
+ *   returns: nothing
+ */
 void Waveform_Task(UArg arg0, UArg arg1) {
 	float fScale; // scaling factor to map ADC counts to pixels
-	int triggerDirection;
-	unsigned int mvoltsPerDiv;
-	int triggerPixel;
 
 	for (;;) {
-		//TODO: Pend on sempaphore from Display_Task()
+		// Pend on sempaphore
 		Semaphore_pend(Wave_Sem, BIOS_WAIT_FOREVER);
 
-		// get shared data variables
-		triggerDirection = g_iTriggerDirection;
-		mvoltsPerDiv = g_uiMVoltsPerDiv;
-		triggerPixel = g_iTriggerPixel;
-
-		//TODO: Search for trigger in the ADC buffer
 		//Determine scaling factor
 		fScale = ((float) (VIN_RANGE * 1000 * PIXELS_PER_DIV))
-				/ ((float) ((1 << ADC_BITS) * mvoltsPerDiv));
+				/ ((float) ((1 << ADC_BITS) * g_uiMVoltsPerDiv));
 
 		//Find trigger
-		float triggerLevel = (3.0 / (1 << ADC_BITS)) * (triggerPixel / fScale);
-		int triggerIndex = triggerSearch(triggerLevel, triggerDirection, NFFT);
+		float triggerLevel = (3.0 / (1 << ADC_BITS))
+				* (g_iTriggerPixel / fScale);
+		int triggerIndex = triggerSearch(triggerLevel, g_iTriggerDirection,
+				NFFT);
 
-		g_fFScale = fScale;
-		g_fTriggerLevel = triggerLevel;
-
-		//Copy, convert a screen's worth of data into a local buffer of points
+		//Copy NFFT, 1024 samples, into local buffer
 		Point tempBuffer[NFFT];
 		int i;
 		for (i = 0; i < NFFT; i++) {
@@ -333,68 +282,48 @@ void Waveform_Task(UArg arg0, UArg arg1) {
 			g_ppWaveformBuffer[j].x = tempBuffer[j].x;
 		}
 
-		if (g_ucSpectrumMode == 0) {
+		if (g_ucSpectrumMode == 0) { // not in spectrum mode
 			Semaphore_post(Draw_Sem);
-		} else {
+		} else { // in spectrum mode
 			Semaphore_post(FFT_Sem);
 		}
 	}
 }
 
+/**
+ * Task Function: FFT_Task
+ * ----------------------------
+ *   Computes the Fast Fourier Transform and scales the result
+ *   to display properly on the display.
+ *   Pends on FFT_Sem. Upon loop iteration completion, posts to Draw_Sem.
+ *
+ *   returns: nothing
+ */
 void FFT_Task(UArg arg0, UArg arg1) {
-
 	static char kiss_fft_cfg_buffer[KISS_FFT_CFG_SIZE]; // Kiss FFT config memory
 	size_t buffer_size = KISS_FFT_CFG_SIZE;
 	kiss_fft_cfg cfg; // Kiss FFT config
 	static kiss_fft_cpx in[NFFT], out[NFFT]; // complex waveform and spectrum buffers
-	int i;
 	cfg = kiss_fft_alloc(NFFT, 0, kiss_fft_cfg_buffer, &buffer_size); // init Kiss FFT
+	int i;
 
 	for (;;) {
 		Semaphore_pend(FFT_Sem, BIOS_WAIT_FOREVER);
 
-		for (i = 0; i < NFFT; i++) { // generate an input waveform
-			in[i].r = g_ppWaveformBuffer[i].y; // real part of waveform
+		for (i = 0; i < NFFT; i++) {
+			in[i].r = g_ppWaveformBuffer[i].y; // set real part of waveform
 			in[i].i = 0; // imaginary part of waveform
 		}
 		kiss_fft(cfg, in, out); // compute FFT
 
-//		float min = FLT_MAX;
-		int j;
-//		for (j = 0; j < SCREEN_WIDTH; j++) {
-//			if(out[j].i < min) {
-//				min = out[j].i;
-//			}
-//		}
-
-		/*********************************************************************
-		 * AREAS TO INVESTIGATE:
-		 * - g_ppWaveformBuffer[] is of length 128
-		 *
-		 *********************************************************************/
-
-		int k;
-		for (j = 0; j < SCREEN_WIDTH; j++) {
-			g_piSpectrumBuffer[j] = log10(powf(out[j].r, 2) + powf(out[j].i, 2))
-					* -10 + 96;
+		for (i = 0; i < SCREEN_WIDTH; i++) {
+			g_piSpectrumBuffer[i] = log10(powf(out[i].r, 2) + powf(out[i].i, 2))
+					* -10 + 96; // compute amplitude and scale to fit display
 		}
 
 		Semaphore_post(Draw_Sem);
 	}
 }
-
-//void Idle_Task(void) {
-//	unsigned long count_loaded;	// counts of iterable after interrupts are enabled
-//
-//	for (;;) {
-//		//Measure CPU Load
-//		count_loaded = cpu_load_count();
-//
-//		Semaphore_pend(CPU_Sem, BIOS_WAIT_FOREVER);
-//		cpu_load = 1.0 - (float) count_loaded / g_ulCount_unloaded; // compute CPU load
-//		Semaphore_post(CPU_Sem);
-//	}
-//}
 
 /**
  * Function: adcSetup
@@ -404,40 +333,40 @@ void FFT_Task(UArg arg0, UArg arg1) {
  *   by the ADC for each sample taken.  These interrupts are of the highest priority
  *
  *   returns: nothing
-
  */
 void adcSetup(void) {
 	SysCtlPeripheralEnable(SYSCTL_PERIPH_ADC0); // enable the ADC
 	SysCtlADCSpeedSet(SYSCTL_ADCSPEED_500KSPS); // specify 500ksps
 	ADCSequenceDisable(ADC0_BASE, 0); // choose ADC sequence 0; disable before configuring
-//	ADCSequenceConfigure(ADC0_BASE, 0, ADC_TRIGGER_TIMER, 0); // specify the trigger for Timer
-	ADCSequenceConfigure(ADC0_BASE, 0, ADC_TRIGGER_ALWAYS, 0);
+	ADCSequenceConfigure(ADC0_BASE, 0, ADC_TRIGGER_ALWAYS, 0); // always trigger
 	ADCSequenceStepConfigure(ADC0_BASE, 0, 0,
 			ADC_CTL_IE | ADC_CTL_END | ADC_CTL_CH0); // in the 0th step, sample channel 0
 	ADCIntEnable(ADC0_BASE, 0); // enable ADC interrupt from sequence 0
 	ADCSequenceEnable(ADC0_BASE, 0); // enable the sequence. it is now sampling
-//	IntPrioritySet(INT_ADC0SS0, 0); // 0 = highest priority
-//	IntEnable(INT_ADC0SS0); // enable ADC0 interrupts
 }
 
 /**
- * Configures "select", "up", "down", "left", "right" buttons for input
- * Adapted from Lab 0 handout by Professor Gene Bogdanov
+ * Function: buttonSetup
+ * ----------------------------
+ *   Configures "select", "up", "down", "left", "right" buttons for input
+ *   Adapted from Lab 0 handout by Professor Gene Bogdanov
+ *
+ *   returns: nothing
  */
 void buttonSetup(void) {
 	// configure GPIO used to read the state of the on-board push buttons
 	// configures "up", "down", "left", "right" buttons
-	SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOE);
+	SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOE); // enable General Purpose IO Port E
 	GPIOPinTypeGPIOInput(GPIO_PORTE_BASE,
-			GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3);
+			GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3); // set GPIO pins 0-3 as input
 	GPIOPadConfigSet(GPIO_PORTE_BASE,
 			GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3,
 			GPIO_STRENGTH_2MA, GPIO_PIN_TYPE_STD_WPU);
 
 	// configure GPIO used to read the state of the on-board push buttons
 	// configures select button
-	SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOF);
-	GPIOPinTypeGPIOInput(GPIO_PORTF_BASE, GPIO_PIN_1);
+	SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOF); // enable General Purpose IO Port F
+	GPIOPinTypeGPIOInput(GPIO_PORTF_BASE, GPIO_PIN_1); // set GPIO pin 1 as input
 	GPIOPadConfigSet(GPIO_PORTF_BASE, GPIO_PIN_1, GPIO_STRENGTH_2MA,
 			GPIO_PIN_TYPE_STD_WPU);
 }
@@ -450,6 +379,7 @@ void buttonSetup(void) {
  *
  *   triggerLevel: the floating-point magnitude, in Volts, of the trigger
  *   direction: the direction of change of a trigger, either (int) +1 for rising or -1 for falling
+ *   samples: the number of samples to search through
  *
  *   returns: the index of the trigger, or the index half a buffer from the newest sample if a trigger is not found
  */

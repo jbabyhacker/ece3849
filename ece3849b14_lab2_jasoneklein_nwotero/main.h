@@ -1,8 +1,9 @@
 /*
  * main.h
  *
- *  Created on: Nov 7, 2014
- *      Author: Nicholas
+ * Authors: Jason Klein and Nicholas Otero
+ * Date: 12/5/2014
+ * ECE 3829 Lab 2
  */
 
 #ifndef MAIN_H_
@@ -41,8 +42,16 @@
 //Includes for float max
 #include "float.h"
 
+//Includes for Fast Fourier Transform
 #include "kiss_fft.h"
 #include "_kiss_fft_guts.h"
+
+//Includes for SYS/BIOS
+#include <xdc/std.h>
+#include <xdc/runtime/Error.h>
+#include <xdc/runtime/System.h>
+#include <xdc/cfg/global.h>
+#include <ti/sysbios/BIOS.h>
 
 //Defines
 #define BUTTON_CLOCK 200 // button scanning interrupt rate in Hz
@@ -66,7 +75,7 @@
 #define TRIGGER_ARROW_WIDTH 4 // trigger level symbol, arrow distance from center horizontally
 #define TRIGGER_ARROW_HEIGHT 2 // trigger level symbol, arrow distance from center vertically
 
-#define PI 3.14159265358979
+#define PI 3.14159265358979 // Mathematical constant PI
 #define NFFT 1024 // FFT length
 #define KISS_FFT_CFG_SIZE (sizeof(struct kiss_fft_state)+sizeof(kiss_fft_cpx)*(NFFT-1))
 
@@ -83,40 +92,27 @@ volatile unsigned long g_ulTime = 0; // time in hundredths of a second
 volatile int g_iADCBufferIndex = ADC_BUFFER_SIZE - 1;  // latest sample index
 volatile unsigned short g_pusADCBuffer[ADC_BUFFER_SIZE]; // circular buffer
 
-//volatile Point g_ppWaveformBuffer[SCREEN_WIDTH];
 volatile Point g_ppWaveformBuffer[NFFT];
-//volatile int g_ppWaveformBuffer[NFFT];
 volatile unsigned long g_ulADCErrors = 0; // number of missed ADC deadlines
 
-//volatile unsigned short g_pusWaveformBuffer[SCREEN_WIDTH];
 volatile unsigned char g_ucTriggerLevel = 0;
 volatile int g_iTriggerDirection = 1;
 volatile unsigned long g_ulTriggerSearchFail = 0;
-//unsigned long g_ulCount_unloaded;// counts of iterable before interrupts are enabled
-//float cpu_load;
 
 volatile unsigned char g_ucSelectionIndex = 1; // index for selected top-screen gui element
 volatile unsigned int g_uiMVoltsPerDiv = 500;	// miliVolts per division of the screen
 volatile int g_iTriggerPixel = 0;// The number of pixels from the center of the screen the trigger level is on
-volatile float g_fFScale;
 volatile float g_fTriggerLevel;
 const char * const g_ppcVoltageScaleStr[] = {"100 mV", "200 mV", "500 mV", "1 V"};
 
 unsigned int g_uiTimescale = 24;
 
 volatile int g_piSpectrumBuffer[SCREEN_WIDTH];
-//volatile float g_piSpectrumBuffer[SCREEN_WIDTH];
-//volatile float g_piSpectrumBuffer[NFFT/2];
 volatile unsigned char g_ucSpectrumMode = 0;
-
-volatile unsigned char g_ucBPPressedCount = 0;
-volatile unsigned char g_ucUiTaskCount = 0;
 
 Void adcSetup(Void);
 Void buttonSetup(Void);
 unsigned int triggerSearch(float triggerLevel, int direction, int samples);
 Void drawTrigger(int direction);
-
-
 
 #endif /* MAIN_H_ */
