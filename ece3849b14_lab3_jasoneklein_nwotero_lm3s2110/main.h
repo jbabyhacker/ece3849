@@ -21,4 +21,6 @@
 #include "driverlib/timer.h"
 #include "network.h"
 
+void ComparatorSetup();
+
 #endif /* MAIN_H_ */
