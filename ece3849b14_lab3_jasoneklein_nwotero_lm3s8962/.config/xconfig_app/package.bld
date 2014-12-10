@@ -11,7 +11,7 @@ var makeAssembly = false;
 var Executable = xdc.module('xdc.bld.Executable');
 
 var exeOpts = new Executable.Attrs({
-        cfgScript: 'C:/Users/Nicholas/Documents/School/ECE 3849/ece3849/ece3849b14_lab3_jasoneklein_nwotero_lm3s8962/app.cfg',
+        cfgScript: 'C:/Users/Jason Klein/Documents/GitHub/ece3849/ece3849b14_lab3_jasoneklein_nwotero_lm3s8962/app.cfg',
         profile: 'release',
         cfgHome: 'xconfig_app',
 });
@@ -40,8 +40,8 @@ else {
 }
 
 var thisObj = {
-    cfg:        'C:/Users/Nicholas/Documents/School/ECE 3849/ece3849/ece3849b14_lab3_jasoneklein_nwotero_lm3s8962/app.cfg',
-    outputPath: 'C:/Users/Nicholas/Documents/School/ECE 3849/ece3849/ece3849b14_lab3_jasoneklein_nwotero_lm3s8962/.config/xconfig_app',
+    cfg:        'C:/Users/Jason Klein/Documents/GitHub/ece3849/ece3849b14_lab3_jasoneklein_nwotero_lm3s8962/app.cfg',
+    outputPath: 'C:/Users/Jason Klein/Documents/GitHub/ece3849/ece3849b14_lab3_jasoneklein_nwotero_lm3s8962/.config/xconfig_app',
     exeName:    'app' + suffix,
     exeIntName: 'app' + suffix.replace('.', '_'),
     targ:       targ,

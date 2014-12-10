@@ -7,7 +7,7 @@
         <srcFile name="package/cfg/app_pem3.c"/>
     </sources>
     <configscripts>
-        <srcFile name="C:/Users/Nicholas/Documents/School/ECE 3849/ece3849/ece3849b14_lab3_jasoneklein_nwotero_lm3s8962/app.cfg"/>
+        <srcFile name="C:/Users/Jason Klein/Documents/GitHub/ece3849/ece3849b14_lab3_jasoneklein_nwotero_lm3s8962/app.cfg"/>
     </configscripts>
     <makefiles>
         <srcFile name="package.mak" src="package.bld"/>
@@ -44,7 +44,7 @@
         isPartial="false"
         xCfgScript="package/cfg/app_pem3.cfg"
         xCfgPrefix="package/cfg/app_pem3"
-        cfgScript="C:/Users/Nicholas/Documents/School/ECE 3849/ece3849/ece3849b14_lab3_jasoneklein_nwotero_lm3s8962/app.cfg"
+        cfgScript="C:/Users/Jason Klein/Documents/GitHub/ece3849/ece3849b14_lab3_jasoneklein_nwotero_lm3s8962/app.cfg"
         cfgArgs="null"
         />
     </configurations>
@@ -56,7 +56,7 @@
         profile="release"
         xCfgScript="package/cfg/app_pem3.cfg"
         xCfgPrefix="package/cfg/app_pem3"
-        cfgScript="C:/Users/Nicholas/Documents/School/ECE 3849/ece3849/ece3849b14_lab3_jasoneklein_nwotero_lm3s8962/app.cfg"
+        cfgScript="C:/Users/Jason Klein/Documents/GitHub/ece3849/ece3849b14_lab3_jasoneklein_nwotero_lm3s8962/app.cfg"
         cfgArgs="null"
         />
     </executables>
