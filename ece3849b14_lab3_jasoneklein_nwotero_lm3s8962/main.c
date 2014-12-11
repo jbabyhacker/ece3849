@@ -92,15 +92,55 @@ void UserInput_Task(UArg arg0, UArg arg1) {
 
 		switch (presses) {
 		case 1: // "select" button pressed
-
+			if (g_ucSelectionIndex == 2) {
+				g_iTriggerDirection *= -1; //Change direction of change for trigger
+			} else {
+				//Switch between spectrum and waveform
+//				if (g_ucSpectrumMode == 0) {
+//					g_ucSpectrumMode = 1;	//Spectrum
+//				} else {
+//					g_ucSpectrumMode = 0;	//Waveform
+//				}
+			}
 			break;
 		case 2: // "right" button pressed
+			g_ucSelectionIndex =
+					(g_ucSelectionIndex == 2) ? 2 : ++g_ucSelectionIndex; //Select gui element to the right, if one exists
 			break;
 		case 4: // "left" button pressed
+			g_ucSelectionIndex =
+					(g_ucSelectionIndex == 0) ? 0 : --g_ucSelectionIndex; //Select gui element to the left, if one exists
 			break;
 		case 8: // "down" button pressed
+			if (g_ucSelectionIndex == 0) {
+				//Adjust Timescale
+			} else if (g_ucSelectionIndex == 1) { //Adjust pixel per ADC tick
+				if (g_uiMVoltsPerDiv == 1000) {
+					g_uiMVoltsPerDiv = 500;
+				} else if (g_uiMVoltsPerDiv == 500) {
+					g_uiMVoltsPerDiv = 200;
+				} else if (g_uiMVoltsPerDiv == 200) {
+					g_uiMVoltsPerDiv = 100;
+				}
+			} else {
+				g_iTriggerPixel -= 2;	//Move the trigger line down
+			}
 			break;
 		case 16: // "up" button pressed
+			if (g_ucSelectionIndex == 0) {
+				//Adjust Timescale
+			} else if (g_ucSelectionIndex == 1) {
+				//Adjust pixel per ADC tick
+				if (g_uiMVoltsPerDiv == 500) {
+					g_uiMVoltsPerDiv = 1000;
+				} else if (g_uiMVoltsPerDiv == 200) {
+					g_uiMVoltsPerDiv = 500;
+				} else if (g_uiMVoltsPerDiv == 100) {
+					g_uiMVoltsPerDiv = 200;
+				}
+			} else {
+				g_iTriggerPixel += 2;	//Move trigger line up two pixels
+			}
 			break;
 		}
 	}
@@ -175,6 +215,7 @@ void Display_Task(UArg arg0, UArg arg1) {
 		// copy frame to the OLED screen
 		RIT128x96x4ImageDraw(g_pucFrame, 0, 0, FRAME_SIZE_X, FRAME_SIZE_Y);
 
+		Semaphore_post(Wave_Sem);
 	}
 }
 
@@ -248,8 +289,14 @@ void adcSetup(void) {
 	SysCtlADCSpeedSet(SYSCTL_ADCSPEED_500KSPS); // specify 500ksps
 	ADCSequenceDisable(ADC0_BASE, 0); // choose ADC sequence 0; disable before configuring
 	ADCSequenceConfigure(ADC0_BASE, 0, ADC_TRIGGER_ALWAYS, 0); // always trigger
-	ADCSequenceStepConfigure(ADC0_BASE, 0, 0,
-			ADC_CTL_IE | ADC_CTL_END | ADC_CTL_CH0); // in the 0th step, sample channel 0
+	ADCSequenceStepConfigure(ADC0_BASE, 0, 0, ADC_CTL_CH0); // in the 0th step, sample channel 0
+	ADCSequenceStepConfigure(ADC0_BASE, 1, 1, ADC_CTL_CH1);
+	ADCSequenceStepConfigure(ADC0_BASE, 2, 2, ADC_CTL_CH2);
+	ADCSequenceStepConfigure(ADC0_BASE, 3, 3, ADC_CTL_CH3 | ADC_CTL_IE);
+	ADCSequenceStepConfigure(ADC0_BASE, 4, 4, ADC_CTL_CH4);
+	ADCSequenceStepConfigure(ADC0_BASE, 5, 5, ADC_CTL_CH5);
+	ADCSequenceStepConfigure(ADC0_BASE, 6, 6, ADC_CTL_CH6);
+	ADCSequenceStepConfigure(ADC0_BASE, 7, 7, ADC_CTL_CH7 | ADC_CTL_IE | ADC_CTL_END);
 	ADCIntEnable(ADC0_BASE, 0); // enable ADC interrupt from sequence 0
 	ADCSequenceEnable(ADC0_BASE, 0); // enable the sequence. it is now sampling
 }
