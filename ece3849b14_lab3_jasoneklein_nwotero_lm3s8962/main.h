@@ -63,7 +63,19 @@
 #define ADC_BITS 10
 #define BUTTON_BUFFER_SIZE 10
 #define BRIGHT 15 // bright pixel level
+#define DIM 2 // dim pixel level
+#define TRIGGER_X_POS 110 // trigger level symbol, position along x-axis, to center of symbol
+#define TRIGGER_Y_POS 5 // trigger level symbol, position along y-axis, to center of symbol
+#define TRIGGER_H_LINE 6 // trigger level symbol, length of horizontal lines, measured from center of symbol
+#define TRIGGER_V_LINE 4 // trigger level symbol, length of vertical lines, measured from center of symbol
+#define TRIGGER_ARROW_WIDTH 4 // trigger level symbol, arrow distance from center horizontally
+#define TRIGGER_ARROW_HEIGHT 2 // trigger level symbol, arrow distance from center vertically
 
+//Structures
+typedef struct {
+	unsigned short x;
+	unsigned short y;
+} Point;
 
 // Globals
 unsigned long g_ulSystemClock; // system clock frequency in Hz
@@ -74,7 +86,17 @@ volatile unsigned short g_pusADCBuffer[ADC_BUFFER_SIZE]; // circular buffer
 
 volatile unsigned long g_ulADCErrors = 0; // number of missed ADC deadlines
 
+volatile Point g_ppWaveformBuffer[SCREEN_WIDTH];
+volatile unsigned char g_ucSelectionIndex = 1; // index for selected top-screen gui element
+volatile unsigned int g_uiMVoltsPerDiv = 500;	// miliVolts per division of the screen
+volatile int g_iTriggerDirection = 1;
+volatile int g_iTriggerPixel = 0;// The number of pixels from the center of the screen the trigger level is on
+unsigned int g_uiTimescale = 24;
+volatile unsigned long g_ulTriggerSearchFail = 0;
+
 Void adcSetup(Void);
 Void buttonSetup(Void);
+unsigned int triggerSearch(float triggerLevel, int direction, int samples);
+void drawTrigger(int direction);
 
 #endif /* MAIN_H_ */
