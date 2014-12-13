@@ -16,50 +16,57 @@ void main(void) {
 	SysCtlClockSet(SYSCTL_SYSDIV_8 | SYSCTL_USE_PLL | SYSCTL_OSC_MAIN |
 			SYSCTL_XTAL_8MHZ);
 
-	//g_ulSystemClock = SysCtlClockGet();
+	g_ulSystemClock = SysCtlClockGet();
 
-
+	IntMasterDisable();
 	ComparatorSetup();
+	PeriodicTimerSetup();
+	CaptureTimerSetup();
+	IntMasterEnable();
 
 	while (1) {
 
 	}
 }
 
-//void Timer0A_ISR(){
-//	static long previous = 0;
-//	// clear interrupt flag
-//	if (TIMER0_ICR_R & TIMER_MIS_CAEMIS == TIMER_MIS_CAEMIS){
-//		TIMER0_ICR_R &= ~TIMER_ICR_CAECINT;
-//	}
+void Timer0A_ISR(){
+	static long previous = 0;
+	// clear interrupt flag
+	//if (TIMER0_ICR_R & TIMER_MIS_CAEMIS == TIMER_MIS_CAEMIS){
+	//	TIMER0_ICR_R &= ~TIMER_ICR_CAECINT;
+	//}
+	TIMER0_ICR_R = TIMER_ICR_CAECINT;
+	TIMER0_CTL_R = TIMER_CTL_TAEN;
+
+	if (g_ucPeriodInit){ //This should only execute on the first measurement
+		g_ucPeriodInit = 0;
+		previous = TIMER0_TAR_R; //Captured timer value
+	}
+	else{
+		long recent = TIMER0_TAR_R; //Captured timer value
+		g_ucPeriodIndex = BUFFER_WRAP(++g_ucPeriodIndex);
+		g_pulPeriodMeasurements[g_ucPeriodIndex] = (recent - previous) & 0xffff;
+	}
+}
 //
-//	if (g_ucPeriodInit){ //This should only execute on the first measurement
-//		g_ucPeriodInit = 0;
-//		previous = TIMER_IMR_CAMIM; //Captured timer value
-//	}
-//	else{
-//		long recent = TIMER_IMR_CAMIM; //Captured timer value
-//		g_ucPeriodIndex = BUFFER_WRAP(++g_ucPeriodIndex);
-//		g_pulPeriodMeasurements[g_ucPeriodIndex] = (recent - previous) & 0xffff;
-//	}
-//}
-//
-//void Timer2A_ISR()
-//{
-//	int i;
-//	int n = 0;
-//	long freqCount = 0;
-//	//Iterate through each period measured by the other timer ISR. Note, the shared variable is accessed
-//	//repeatedly. This is not a shared data bug. g_ucPeriodIndex will only increment, and this loop
-//	//need to keep up with the new values.  The loop will go no further than what is about to get written.
-//	for (i = g_ucFreqIndex; (i != BUFFER_WRAP(g_ucPeriodIndex + 1)); BUFFER_WRAP(++i))
-//	{
-//		n++;
-//		freqCount += 500000 / g_pulPeriodMeasurements[i];
-//	}
-//
-//	g_ulFrequencyMeasurement = freqCount / n;
-//}
+void Timer1A_ISR()
+{
+	TIMER1_ICR_R = TIMER_ICR_TATOCINT;
+
+	int i;
+	int n = 0;
+	long freqCount = 0;
+	//Iterate through each period measured by the other timer ISR. Note, the shared variable is accessed
+	//repeatedly. This is not a shared data bug. g_ucPeriodIndex will only increment, and this loop
+	//need to keep up with the new values.  The loop will go no further than what is about to get written.
+	for (i = g_ucFreqIndex; (i != BUFFER_WRAP(g_ucPeriodIndex + 1)); BUFFER_WRAP(++i))
+	{
+		n++;
+		freqCount += 500000 / g_pulPeriodMeasurements[i];
+	}
+
+	g_ulFrequencyMeasurement = freqCount / n;
+}
 void ComparatorSetup(){
 	SysCtlPeripheralEnable(SYSCTL_PERIPH_COMP0);
 
@@ -76,37 +83,39 @@ void ComparatorSetup(){
 
 }
 
-//void CaptureTimerSetup(){
-//	SysCtlPeripheralEnable(SYSCTL_PERIPH_TIMER0);
-//	GPIODirModeSet(GPIO_PORTB_BASE, GPIO_PIN_0, GPIO_DIR_MODE_HW); // CCP0 input
-//	GPIOPadConfigSet(GPIO_PORTB_BASE, GPIO_PIN_0, GPIO_STRENGTH_2MA, GPIO_PIN_TYPE_STD);
-//	TimerDisable(TIMER0_BASE, TIMER_BOTH);
-//	TimerConfigure(TIMER0_BASE, TIMER_CFG_SPLIT_PAIR | TIMER_CFG_A_CAP_TIME);
-//	TimerControlEvent(TIMER0_BASE, TIMER_A, TIMER_EVENT_POS_EDGE);
-//	TimerLoadSet(TIMER0_BASE, TIMER_A, 0xffff);
-//	TimerIntEnable(TIMER0_BASE, TIMER_CAPA_EVENT);
-//	TimerEnable(TIMER0_BASE, TIMER_A);
-//	IntPrioritySet(INT_TIMER0A, 0);
-//	IntEnable(INT_TIMER0A);
-//
-//}
+void CaptureTimerSetup(){
+	SysCtlPeripheralEnable(SYSCTL_PERIPH_TIMER0);
 
-//void PeriodicTimerSetup(){
-//	IntMasterDisable();
-//	// configure timer for buttons
-//	unsigned long ulDivider, ulPrescaler;
-//	// initialize a general purpose timer for periodic interrupts
-//	SysCtlPeripheralEnable(SYSCTL_PERIPH_TIMER2);
-//	TimerDisable(TIMER2_BASE, TIMER_BOTH);
-//	TimerConfigure(TIMER2_BASE, TIMER_CFG_SPLIT_PAIR | TIMER_CFG_A_PERIODIC); //Periodic timer
-//
-//	ulPrescaler = (g_ulSystemClock / POLL_RATE - 1) >> 16; // prescaler for a 16-bit timer
-//	ulDivider = g_ulSystemClock / (POLL_RATE * (ulPrescaler + 1)) - 1; // 16-bit divider (timer load value)
-//	TimerLoadSet(TIMER2_BASE, TIMER_A, ulDivider);//Set starting count of timer
-//	TimerPrescaleSet(TIMER2_BASE, TIMER_A, ulPrescaler);	//Prescale the timer
-//	TimerIntEnable(TIMER2_BASE, TIMER_TIMA_TIMEOUT);//enable the timer's interrupts
-//	TimerEnable(TIMER2_BASE, TIMER_A);		//enable timer peripheral interrupts
-//	// initialize interrupt controller to respond to timer interrupts
-//	IntPrioritySet(INT_TIMER2A, 32); // 0 = highest priority, 32 = next lower
-//	IntEnable(INT_TIMER2A);
-//}
+	GPIODirModeSet(GPIO_PORTB_BASE, GPIO_PIN_0, GPIO_DIR_MODE_HW); // CCP0 input
+	GPIOPadConfigSet(GPIO_PORTB_BASE, GPIO_PIN_0, GPIO_STRENGTH_2MA, GPIO_PIN_TYPE_STD);
+
+	TimerDisable(TIMER0_BASE, TIMER_BOTH);
+	TimerConfigure(TIMER0_BASE, TIMER_CFG_SPLIT_PAIR | TIMER_CFG_A_CAP_TIME);
+	TimerControlEvent(TIMER0_BASE, TIMER_A, TIMER_EVENT_POS_EDGE);
+	TimerLoadSet(TIMER0_BASE, TIMER_A, 0xffff);
+	TimerIntEnable(TIMER0_BASE, TIMER_CAPA_EVENT);
+	TimerEnable(TIMER0_BASE, TIMER_A);
+	IntPrioritySet(INT_TIMER0A, 32);
+	IntEnable(INT_TIMER0A);
+
+}
+
+void PeriodicTimerSetup(){
+	IntMasterDisable();
+	// configure timer for buttons
+	unsigned long ulDivider, ulPrescaler;
+	// initialize a general purpose timer for periodic interrupts
+	SysCtlPeripheralEnable(SYSCTL_PERIPH_TIMER1);
+	TimerDisable(TIMER1_BASE, TIMER_BOTH);
+	TimerConfigure(TIMER1_BASE, TIMER_CFG_SPLIT_PAIR | TIMER_CFG_A_PERIODIC); //Periodic timer
+
+	ulPrescaler = (g_ulSystemClock / POLL_RATE - 1) >> 16; // prescaler for a 16-bit timer
+	ulDivider = g_ulSystemClock / (POLL_RATE * (ulPrescaler + 1)) - 1; // 16-bit divider (timer load value)
+	TimerLoadSet(TIMER1_BASE, TIMER_A, ulDivider);//Set starting count of timer
+	TimerPrescaleSet(TIMER1_BASE, TIMER_A, ulPrescaler);	//Prescale the timer
+	TimerIntEnable(TIMER1_BASE, TIMER_TIMA_TIMEOUT);//enable the timer's interrupts
+	TimerEnable(TIMER1_BASE, TIMER_A);		//enable timer peripheral interrupts
+	// initialize interrupt controller to respond to timer interrupts
+	IntPrioritySet(INT_TIMER1A, 0); // 0 = highest priority, 32 = next lower
+	IntEnable(INT_TIMER1A);
+}

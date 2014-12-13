@@ -26,11 +26,12 @@
 #define BUFFER_SIZE 255
 #define BUFFER_WRAP(i) (i % BUFFER_SIZE)
 
-#define POLL_RATE 100000
+#define POLL_RATE 100
 
 //Prototypes
 void ComparatorSetup();
 void CaptureTimerSetup();
+void PeriodicTimerSetup();
 
 //Globals
 unsigned long g_ulSystemClock;
