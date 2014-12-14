@@ -33,6 +33,7 @@ static void FaultISR(void);
 static void IntDefaultHandler(void);
 extern void Timer0A_ISR(void);
 extern void Timer1A_ISR(void);
+extern void CAN_ISR(void);
 
 //*****************************************************************************
 //
@@ -115,7 +116,7 @@ void (* const g_pfnVectors[])(void) =
     IntDefaultHandler,                      // Timer 3 subtimer B
     IntDefaultHandler,                      // I2C1 Master and Slave
     IntDefaultHandler,                      // Quadrature Encoder 1
-    IntDefaultHandler,                     	// CAN0
+    CAN_ISR,                     	// CAN0
     IntDefaultHandler,                      // CAN1
     IntDefaultHandler,                      // CAN2
     IntDefaultHandler,                      // Ethernet

@@ -54,14 +54,14 @@ void NetworkInit(void)
     CANIntEnable(CAN0_BASE, CAN_INT_MASTER | CAN_INT_ERROR | CAN_INT_STATUS);
     NetworkMsgInit();
 
-//    volatile int i;
-//    CAN0_CTL_R;
-//    for (i=0;i<8;i++);
-//    CAN0_CTL_R |= CAN_CTL_TEST; // enable CAN test mode
-//    for (i=0;i<8;i++);
-//    CAN0_TST_R;
-//    for (i=0;i<8;i++);
-//    CAN0_TST_R |= CAN_TST_LBACK; // enable loopback mode
+    volatile int i;
+    CAN0_CTL_R;
+    for (i=0;i<8;i++);
+    CAN0_CTL_R |= CAN_CTL_TEST; // enable CAN test mode
+    for (i=0;i<8;i++);
+    CAN0_TST_R;
+    for (i=0;i<8;i++);
+    CAN0_TST_R |= CAN_TST_LBACK; // enable loopback mode
 
     IntPrioritySet(INT_CAN0, 96);
     IntEnable(INT_CAN0);
@@ -90,5 +90,6 @@ void NetworkTx(unsigned long ulData)
 
 void NetworkRxCallback(unsigned long ulData)
 {
-
+	int i = 0;
+	i++;
 }

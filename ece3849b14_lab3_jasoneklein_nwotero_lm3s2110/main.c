@@ -19,6 +19,7 @@ void main(void) {
 	g_ulSystemClock = SysCtlClockGet();
 
 	IntMasterDisable();
+	NetworkInit();
 	ComparatorSetup();
 	PeriodicTimerSetup();
 	CaptureTimerSetup();
@@ -68,6 +69,7 @@ void Timer1A_ISR()
 	}
 
 	g_ulFrequencyMeasurement = freqCount / n;
+	NetworkTx(g_ulFrequencyMeasurement);
 }
 void ComparatorSetup(){
 	SysCtlPeripheralEnable(SYSCTL_PERIPH_COMP0);

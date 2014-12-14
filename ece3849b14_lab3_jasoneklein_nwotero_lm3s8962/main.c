@@ -20,6 +20,7 @@ void main() {
 	IntMasterDisable(); // disable interrupts
 	buttonSetup(); // setup buttons
 	adcSetup(); // setup ADC
+//	NetworkInit();
 	IntMasterEnable(); // enable interrupts
 
 	BIOS_start(); /* enable interrupts and start SYS/BIOS */

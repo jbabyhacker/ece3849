@@ -42,7 +42,8 @@
 //Includes for float max
 #include "float.h"
 
-//Includes for Fast Fourier Transform
+//Inclues CAN network functions
+#include "network.h"
 
 //Includes for SYS/BIOS
 #include <xdc/std.h>

@@ -90,5 +90,6 @@ void NetworkTx(unsigned long ulData)
 }
 
 void NetworkRxCallback(unsigned long ulData) {
-
+	int i = 0;
+	i++;
 }
