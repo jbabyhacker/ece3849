@@ -45,7 +45,7 @@ void Timer0A_ISR(){
 	else{
 		long recent = TIMER0_TAR_R; //Captured timer value
 		g_ucPeriodIndex = BUFFER_WRAP(++g_ucPeriodIndex);
-		g_ulDiff = ((recent - previous) & 0xffff) / 2;
+		g_ulDiff = ((previous - recent) & 0xffff);
 		g_pulPeriodMeasurements[g_ucPeriodIndex] = g_ulDiff / (g_ulSystemClock / 1000000);
 		previous = recent;
 	}
@@ -99,7 +99,7 @@ void CaptureTimerSetup(){
 	TimerLoadSet(TIMER0_BASE, TIMER_A, 0xffff);
 	TimerIntEnable(TIMER0_BASE, TIMER_CAPA_EVENT);
 	TimerEnable(TIMER0_BASE, TIMER_A);
-	IntPrioritySet(INT_TIMER0A, 32);
+	IntPrioritySet(INT_TIMER0A, 0);
 	IntEnable(INT_TIMER0A);
 
 }
@@ -120,6 +120,6 @@ void PeriodicTimerSetup(){
 	TimerIntEnable(TIMER1_BASE, TIMER_TIMA_TIMEOUT);//enable the timer's interrupts
 	TimerEnable(TIMER1_BASE, TIMER_A);		//enable timer peripheral interrupts
 	// initialize interrupt controller to respond to timer interrupts
-	IntPrioritySet(INT_TIMER1A, 0); // 0 = highest priority, 32 = next lower
+	IntPrioritySet(INT_TIMER1A, 32); // 0 = highest priority, 32 = next lower
 	IntEnable(INT_TIMER1A);
 }
