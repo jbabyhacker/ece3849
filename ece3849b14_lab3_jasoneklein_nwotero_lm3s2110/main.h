@@ -26,7 +26,7 @@
 #define BUFFER_SIZE 255
 #define BUFFER_WRAP(i) (i % BUFFER_SIZE)
 
-#define POLL_RATE 100
+#define POLL_RATE 10
 
 //Prototypes
 void ComparatorSetup();
@@ -40,5 +40,6 @@ volatile unsigned long g_ulFrequencyMeasurement;
 volatile unsigned char g_ucPeriodIndex = 0;
 volatile unsigned char g_ucFreqIndex = 0;
 volatile unsigned char g_ucPeriodInit = 1;
+volatile unsigned long g_ulDiff = 0;
 
 #endif /* MAIN_H_ */

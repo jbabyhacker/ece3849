@@ -36,7 +36,7 @@ void Timer0A_ISR(){
 	//	TIMER0_ICR_R &= ~TIMER_ICR_CAECINT;
 	//}
 	TIMER0_ICR_R = TIMER_ICR_CAECINT;
-	TIMER0_CTL_R = TIMER_CTL_TAEN;
+	//TIMER0_CTL_R = TIMER_CTL_TAEN;
 
 	if (g_ucPeriodInit){ //This should only execute on the first measurement
 		g_ucPeriodInit = 0;
@@ -45,7 +45,9 @@ void Timer0A_ISR(){
 	else{
 		long recent = TIMER0_TAR_R; //Captured timer value
 		g_ucPeriodIndex = BUFFER_WRAP(++g_ucPeriodIndex);
-		g_pulPeriodMeasurements[g_ucPeriodIndex] = (recent - previous) & 0xffff;
+		g_ulDiff = ((recent - previous) & 0xffff) / 2;
+		g_pulPeriodMeasurements[g_ucPeriodIndex] = g_ulDiff / (g_ulSystemClock / 1000000);
+		previous = recent;
 	}
 }
 //
@@ -62,7 +64,7 @@ void Timer1A_ISR()
 	for (i = g_ucFreqIndex; (i != BUFFER_WRAP(g_ucPeriodIndex + 1)); BUFFER_WRAP(++i))
 	{
 		n++;
-		freqCount += 500000 / g_pulPeriodMeasurements[i];
+		freqCount += 1000000 / g_pulPeriodMeasurements[i];
 	}
 
 	g_ulFrequencyMeasurement = freqCount / n;
