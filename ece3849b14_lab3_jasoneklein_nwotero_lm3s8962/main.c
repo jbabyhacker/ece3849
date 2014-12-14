@@ -38,12 +38,19 @@ void main() {
 void ADCSampler_Hwi(void) {
 	ADC_ISC_R = ADC_ISC_IN0; // clear ADC sequence0 interrupt flag in the ADCISC register
 	if (ADC0_OSTAT_R & ADC_OSTAT_OV0) { // check for ADC FIFO overflow
-		g_ulADCErrors++; // count errors - step 1 of the signoff
+		g_ulADCErrors++; // count errors
 		ADC0_OSTAT_R = ADC_OSTAT_OV0; // clear overflow condition
 	}
+
+	g_ulAdcTime++;
+
 	int buffer_index = ADC_BUFFER_WRAP(g_iADCBufferIndex + 1);
-	g_pusADCBuffer[buffer_index] = ADC_SSFIFO0_R & ADC_SSFIFO0_DATA_M; // read sample from the ADC sequence0 FIFO
-	g_iADCBufferIndex = buffer_index; // set the new buffer index
+	while((ADC0_SSFSTAT0_R & ADC_SSFSTAT0_EMPTY) != ADC_SSFSTAT0_EMPTY){
+		g_pusADCBuffer[buffer_index] = ADC_SSFIFO0_R & ADC_SSFIFO0_DATA_M; // read sample from the ADC sequence0 FIFO
+		buffer_index = ADC_BUFFER_WRAP(++buffer_index);
+	}
+
+	g_iADCBufferIndex = buffer_index - 1; // set the new buffer index
 }
 
 /**
@@ -56,6 +63,8 @@ void ADCSampler_Hwi(void) {
  */
 void ButtonPoller_Clock(void) {
 	unsigned long presses = g_ulButtons;
+	g_ulAdcCount = g_ulAdcTime;
+	g_ulAdcTime = 0;
 
 	// button debounce
 	ButtonDebounce((~GPIO_PORTE_DATA_R & GPIO_PIN_0) << 4 // "up" button
@@ -290,13 +299,13 @@ void adcSetup(void) {
 	ADCSequenceDisable(ADC0_BASE, 0); // choose ADC sequence 0; disable before configuring
 	ADCSequenceConfigure(ADC0_BASE, 0, ADC_TRIGGER_ALWAYS, 0); // always trigger
 	ADCSequenceStepConfigure(ADC0_BASE, 0, 0, ADC_CTL_CH0); // in the 0th step, sample channel 0
-	ADCSequenceStepConfigure(ADC0_BASE, 1, 1, ADC_CTL_CH1);
-	ADCSequenceStepConfigure(ADC0_BASE, 2, 2, ADC_CTL_CH2);
-	ADCSequenceStepConfigure(ADC0_BASE, 3, 3, ADC_CTL_CH3 | ADC_CTL_IE);
-	ADCSequenceStepConfigure(ADC0_BASE, 4, 4, ADC_CTL_CH4);
-	ADCSequenceStepConfigure(ADC0_BASE, 5, 5, ADC_CTL_CH5);
-	ADCSequenceStepConfigure(ADC0_BASE, 6, 6, ADC_CTL_CH6);
-	ADCSequenceStepConfigure(ADC0_BASE, 7, 7, ADC_CTL_CH7 | ADC_CTL_IE | ADC_CTL_END);
+	ADCSequenceStepConfigure(ADC0_BASE, 0, 1, ADC_CTL_CH0);
+	ADCSequenceStepConfigure(ADC0_BASE, 0, 2, ADC_CTL_CH0);
+	ADCSequenceStepConfigure(ADC0_BASE, 0, 3, ADC_CTL_CH0 | ADC_CTL_IE);
+	ADCSequenceStepConfigure(ADC0_BASE, 0, 4, ADC_CTL_CH0);
+	ADCSequenceStepConfigure(ADC0_BASE, 0, 5, ADC_CTL_CH0);
+	ADCSequenceStepConfigure(ADC0_BASE, 0, 6, ADC_CTL_CH0);
+	ADCSequenceStepConfigure(ADC0_BASE, 0, 7, ADC_CTL_CH0 | ADC_CTL_IE | ADC_CTL_END);
 	ADCIntEnable(ADC0_BASE, 0); // enable ADC interrupt from sequence 0
 	ADCSequenceEnable(ADC0_BASE, 0); // enable the sequence. it is now sampling
 }
