@@ -9,7 +9,7 @@
 #include "inc/hw_sysctl.h"
 #include "inc/hw_types.h"
 //#include "inc/lm3s8962.h" // LM3S8962 specific
-//#include "lm3s2110.h"     // LM3S2110 specific
+#include "lm3s2110.h"     // LM3S2110 specific
 #include "driverlib/can.h"
 #include "driverlib/gpio.h"
 #include "driverlib/interrupt.h"

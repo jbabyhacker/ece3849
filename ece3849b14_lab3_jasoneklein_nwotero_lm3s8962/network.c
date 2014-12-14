@@ -8,7 +8,7 @@
 #include "inc/hw_memmap.h"
 #include "inc/hw_sysctl.h"
 #include "inc/hw_types.h"
-//#include "inc/lm3s8962.h" // LM3S8962 specific
+#include "inc/lm3s8962.h" // LM3S8962 specific
 //#include "lm3s2110.h"     // LM3S2110 specific
 #include "driverlib/can.h"
 #include "driverlib/gpio.h"
@@ -63,8 +63,9 @@ void NetworkInit(void)
 //    for (i=0;i<8;i++);
 //    CAN0_TST_R |= CAN_TST_LBACK; // enable loopback mode
 
-    IntPrioritySet(INT_CAN0, 96);
-    IntEnable(INT_CAN0);
+    // removed because SYS/BIOS configures this
+//    IntPrioritySet(INT_CAN0, 96);
+//    IntEnable(INT_CAN0);
 }
 
 void NetworkMsgInit(void)
@@ -88,7 +89,6 @@ void NetworkTx(unsigned long ulData)
 	CANMessageSet(CAN0_BASE, MSG_NUM_TX, &g_MsgTx, MSG_OBJ_TYPE_TX);
 }
 
-void NetworkRxCallback(unsigned long ulData)
-{
+void NetworkRxCallback(unsigned long ulData) {
 
 }
