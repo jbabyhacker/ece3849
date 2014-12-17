@@ -8,7 +8,7 @@
 
 #include "main.h"
 
-volatile unsigned long periodSum = 0;
+volatile float periodSum = 0;
 volatile unsigned int numSamples = 0;
 
 void main(void) {
@@ -52,7 +52,8 @@ void Timer0A_ISR() {
 		g_ulDiff = ((previous - recent) & 0xffff);
 		//g_pulPeriodMeasurements[g_ucPeriodIndex] = g_ulDiff
 		//		/ (g_ulSystemClock / 1000000);
-		periodSum += g_ulDiff / (g_ulSystemClock / 1000000);
+		periodSum += g_ulDiff;
+		//periodSum += g_ulDiff / (g_ulSystemClock / 1000000);
 		numSamples++;
 		previous = recent;
 	}
@@ -77,8 +78,8 @@ void Timer1A_ISR() {
 //			freqCount += 1000000 / g_pulPeriodMeasurements[i];
 //		}
 //	}
-	long avgPeriod = periodSum / numSamples;
-	g_ulFrequencyMeasurement = 1000000000 / avgPeriod;
+	float avgPeriod = periodSum / numSamples;
+	g_ulFrequencyMeasurement = ((1 / avgPeriod) * g_ulSystemClock) * 1000;
 	periodSum = 0;
 	numSamples = 0;
 	//g_ulFrequencyMeasurement = 1000000 / g_pulPeriodMeasurements[i];

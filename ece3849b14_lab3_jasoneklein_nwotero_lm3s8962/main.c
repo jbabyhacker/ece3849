@@ -218,7 +218,7 @@ void Display_Task(UArg arg0, UArg arg1) {
 		DrawString(53, 0, pcStr, 15, false); // draw string to frame buffer
 
 		//Draw frequency to screen
-		usprintf(pcStr, "%u Hz", g_ulFrequency);
+		usprintf(pcStr, "%u mHz", g_ulFrequency);
 		DrawString(5, 80, pcStr, 15, false);
 
 		//Draw trigger icon and trigger line
