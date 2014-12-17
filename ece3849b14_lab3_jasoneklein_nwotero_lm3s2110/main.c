@@ -8,6 +8,9 @@
 
 #include "main.h"
 
+volatile unsigned long periodSum = 0;
+volatile unsigned int numSamples = 0;
+
 void main(void) {
 	// configure clock for 25 MHz
 	if (REVISION_IS_A2) {
@@ -45,10 +48,12 @@ void Timer0A_ISR() {
 		previous = TIMER0_TAR_R; //Captured timer value
 	} else {
 		long recent = TIMER0_TAR_R; //Captured timer value
-		g_ucPeriodIndex = BUFFER_WRAP(++g_ucPeriodIndex);
+		//g_ucPeriodIndex = BUFFER_WRAP(++g_ucPeriodIndex);
 		g_ulDiff = ((previous - recent) & 0xffff);
-		g_pulPeriodMeasurements[g_ucPeriodIndex] = g_ulDiff
-				/ (g_ulSystemClock / 1000000);
+		//g_pulPeriodMeasurements[g_ucPeriodIndex] = g_ulDiff
+		//		/ (g_ulSystemClock / 1000000);
+		periodSum += g_ulDiff / (g_ulSystemClock / 1000000);
+		numSamples++;
 		previous = recent;
 	}
 
@@ -66,18 +71,25 @@ void Timer1A_ISR() {
 	//Iterate through each period measured by the other timer ISR. Note, the shared variable is accessed
 	//repeatedly. This is not a shared data bug. g_ucPeriodIndex will only increment, and this loop
 	//need to keep up with the new values.  The loop will go no further than what is about to get written.
-	for (i = g_ucFreqIndex; (i != BUFFER_WRAP(g_ucPeriodIndex + 1)); BUFFER_WRAP(++i)) {
-		if (g_pulPeriodMeasurements[i]) {
-			n++;
-			freqCount += 1000000 / g_pulPeriodMeasurements[i];
-		}
-	}
-	g_ucFreqIndex = BUFFER_WRAP(g_ucPeriodIndex);
+//	for (i = g_ucFreqIndex; (i != BUFFER_WRAP(g_ucPeriodIndex + 1)); BUFFER_WRAP(++i)) {
+//		if (g_pulPeriodMeasurements[i]) {
+//			n++;
+//			freqCount += 1000000 / g_pulPeriodMeasurements[i];
+//		}
+//	}
+	long avgPeriod = periodSum / numSamples;
+	g_ulFrequencyMeasurement = 1000000000 / avgPeriod;
+	periodSum = 0;
+	numSamples = 0;
+	//g_ulFrequencyMeasurement = 1000000 / g_pulPeriodMeasurements[i];
+	NetworkTx(g_ulFrequencyMeasurement);
 
-	if (n) {
-		g_ulFrequencyMeasurement = freqCount / n;
-		NetworkTx(g_ulFrequencyMeasurement);
-	}
+//	g_ucFreqIndex = BUFFER_WRAP(g_ucPeriodIndex);
+//
+//	if (n) {
+//		g_ulFrequencyMeasurement = freqCount / n;
+//		NetworkTx(g_ulFrequencyMeasurement);
+//	}
 }
 void ComparatorSetup() {
 	SysCtlPeripheralEnable(SYSCTL_PERIPH_COMP0);
