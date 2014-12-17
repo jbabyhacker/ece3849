@@ -13,8 +13,9 @@ void main(void) {
 	if (REVISION_IS_A2) {
 		SysCtlLDOSet(SYSCTL_LDO_2_75V);
 	}
-	SysCtlClockSet(SYSCTL_SYSDIV_8 | SYSCTL_USE_PLL | SYSCTL_OSC_MAIN |
-			SYSCTL_XTAL_8MHZ);
+	SysCtlClockSet(
+			SYSCTL_SYSDIV_8 | SYSCTL_USE_PLL | SYSCTL_OSC_MAIN
+					| SYSCTL_XTAL_8MHZ);
 
 	g_ulSystemClock = SysCtlClockGet();
 
@@ -30,7 +31,7 @@ void main(void) {
 	}
 }
 
-void Timer0A_ISR(){
+void Timer0A_ISR() {
 	static long previous = 0;
 	// clear interrupt flag
 	//if (TIMER0_ICR_R & TIMER_MIS_CAEMIS == TIMER_MIS_CAEMIS){
@@ -39,22 +40,25 @@ void Timer0A_ISR(){
 	TIMER0_ICR_R = TIMER_ICR_CAECINT;
 	//TIMER0_CTL_R = TIMER_CTL_TAEN;
 
-	if (g_ucPeriodInit){ //This should only execute on the first measurement
+	if (g_ucPeriodInit) { //This should only execute on the first measurement
 		g_ucPeriodInit = 0;
 		previous = TIMER0_TAR_R; //Captured timer value
-	}
-	else{
+	} else {
 		long recent = TIMER0_TAR_R; //Captured timer value
 		g_ucPeriodIndex = BUFFER_WRAP(++g_ucPeriodIndex);
 		g_ulDiff = ((previous - recent) & 0xffff);
-		g_pulPeriodMeasurements[g_ucPeriodIndex] = g_ulDiff / (g_ulSystemClock / 1000000);
+		g_pulPeriodMeasurements[g_ucPeriodIndex] = g_ulDiff
+				/ (g_ulSystemClock / 1000000);
 		previous = recent;
 	}
+
+	g_ulTimer0Counter++;
 }
 //
-void Timer1A_ISR()
-{
+void Timer1A_ISR() {
 	TIMER1_ICR_R = TIMER_ICR_TATOCINT;
+
+	g_ulTimer1Counter++;
 
 	int i;
 	int n = 0;
@@ -62,16 +66,20 @@ void Timer1A_ISR()
 	//Iterate through each period measured by the other timer ISR. Note, the shared variable is accessed
 	//repeatedly. This is not a shared data bug. g_ucPeriodIndex will only increment, and this loop
 	//need to keep up with the new values.  The loop will go no further than what is about to get written.
-	for (i = g_ucFreqIndex; (i != BUFFER_WRAP(g_ucPeriodIndex + 1)); BUFFER_WRAP(++i))
-	{
-		n++;
-		freqCount += 1000000 / g_pulPeriodMeasurements[i];
+	for (i = g_ucFreqIndex; (i != BUFFER_WRAP(g_ucPeriodIndex + 1)); BUFFER_WRAP(++i)) {
+		if (g_pulPeriodMeasurements[i]) {
+			n++;
+			freqCount += 1000000 / g_pulPeriodMeasurements[i];
+		}
 	}
+	g_ucFreqIndex = BUFFER_WRAP(g_ucPeriodIndex);
 
-	g_ulFrequencyMeasurement = freqCount / n;
-	NetworkTx(g_ulFrequencyMeasurement);
+	if (n) {
+		g_ulFrequencyMeasurement = freqCount / n;
+		NetworkTx(g_ulFrequencyMeasurement);
+	}
 }
-void ComparatorSetup(){
+void ComparatorSetup() {
 	SysCtlPeripheralEnable(SYSCTL_PERIPH_COMP0);
 
 	//No ADC interrupt, internal reference, not inverted output
@@ -89,11 +97,12 @@ void ComparatorSetup(){
 
 }
 
-void CaptureTimerSetup(){
+void CaptureTimerSetup() {
 	SysCtlPeripheralEnable(SYSCTL_PERIPH_TIMER0);
 
 	GPIODirModeSet(GPIO_PORTB_BASE, GPIO_PIN_0, GPIO_DIR_MODE_HW); // CCP0 input
-	GPIOPadConfigSet(GPIO_PORTB_BASE, GPIO_PIN_0, GPIO_STRENGTH_2MA, GPIO_PIN_TYPE_STD);
+	GPIOPadConfigSet(GPIO_PORTB_BASE, GPIO_PIN_0, GPIO_STRENGTH_2MA,
+			GPIO_PIN_TYPE_STD);
 
 	TimerDisable(TIMER0_BASE, TIMER_BOTH);
 	TimerConfigure(TIMER0_BASE, TIMER_CFG_SPLIT_PAIR | TIMER_CFG_A_CAP_TIME);
@@ -106,7 +115,7 @@ void CaptureTimerSetup(){
 
 }
 
-void PeriodicTimerSetup(){
+void PeriodicTimerSetup() {
 	IntMasterDisable();
 	// configure timer for buttons
 	unsigned long ulDivider, ulPrescaler;
@@ -117,7 +126,7 @@ void PeriodicTimerSetup(){
 
 	ulPrescaler = (g_ulSystemClock / POLL_RATE - 1) >> 16; // prescaler for a 16-bit timer
 	ulDivider = g_ulSystemClock / (POLL_RATE * (ulPrescaler + 1)) - 1; // 16-bit divider (timer load value)
-	TimerLoadSet(TIMER1_BASE, TIMER_A, ulDivider);//Set starting count of timer
+	TimerLoadSet(TIMER1_BASE, TIMER_A, ulDivider); //Set starting count of timer
 	TimerPrescaleSet(TIMER1_BASE, TIMER_A, ulPrescaler);	//Prescale the timer
 	TimerIntEnable(TIMER1_BASE, TIMER_TIMA_TIMEOUT);//enable the timer's interrupts
 	TimerEnable(TIMER1_BASE, TIMER_A);		//enable timer peripheral interrupts

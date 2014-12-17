@@ -20,7 +20,7 @@ void main() {
 	IntMasterDisable(); // disable interrupts
 	buttonSetup(); // setup buttons
 	adcSetup(); // setup ADC
-//	NetworkInit();
+	NetworkInit();
 	IntMasterEnable(); // enable interrupts
 
 	BIOS_start(); /* enable interrupts and start SYS/BIOS */
@@ -216,6 +216,10 @@ void Display_Task(UArg arg0, UArg arg1) {
 		//Draw voltage scale
 		usprintf(pcStr, "%02umV", g_uiMVoltsPerDiv); // convert voltage scale to string
 		DrawString(53, 0, pcStr, 15, false); // draw string to frame buffer
+
+		//Draw frequency to screen
+		usprintf(pcStr, "%u Hz", g_ulFrequency);
+		DrawString(5, 80, pcStr, 15, false);
 
 		//Draw trigger icon and trigger line
 		drawTrigger(g_iTriggerDirection);

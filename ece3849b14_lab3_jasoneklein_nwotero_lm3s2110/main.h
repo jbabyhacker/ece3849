@@ -23,7 +23,7 @@
 #include "network.h"
 
 //Defines
-#define BUFFER_SIZE 255
+#define BUFFER_SIZE 256
 #define BUFFER_WRAP(i) (i % BUFFER_SIZE)
 
 #define POLL_RATE 10
@@ -41,5 +41,8 @@ volatile unsigned char g_ucPeriodIndex = 0;
 volatile unsigned char g_ucFreqIndex = 0;
 volatile unsigned char g_ucPeriodInit = 1;
 volatile unsigned long g_ulDiff = 0;
+
+volatile unsigned long g_ulTimer1Counter = 0;
+volatile unsigned long g_ulTimer0Counter = 0;
 
 #endif /* MAIN_H_ */

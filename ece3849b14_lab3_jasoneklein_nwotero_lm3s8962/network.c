@@ -19,6 +19,8 @@
 static tCANMsgObject g_MsgRx;
 static unsigned long g_ulRxData;
 
+volatile unsigned long g_ulFrequency;
+
 static tCANMsgObject g_MsgTx;
 
 void NetworkMsgInit(void);
@@ -90,6 +92,5 @@ void NetworkTx(unsigned long ulData)
 }
 
 void NetworkRxCallback(unsigned long ulData) {
-	int i = 0;
-	i++;
+	g_ulFrequency = ulData;
 }
