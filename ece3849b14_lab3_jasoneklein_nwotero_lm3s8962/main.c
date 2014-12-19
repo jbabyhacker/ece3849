@@ -43,8 +43,6 @@ void ADCSampler_Hwi(void) {
 		ADC0_OSTAT_R = ADC_OSTAT_OV0; // clear overflow condition
 	}
 
-	g_ulAdcTime++;
-
 	int buffer_index = ADC_BUFFER_WRAP(g_iADCBufferIndex + 1);
 	while((ADC0_SSFSTAT0_R & ADC_SSFSTAT0_EMPTY) != ADC_SSFSTAT0_EMPTY){
 		g_pusADCBuffer[buffer_index] = ADC_SSFIFO0_R & ADC_SSFIFO0_DATA_M; // read sample from the ADC sequence0 FIFO
@@ -64,8 +62,6 @@ void ADCSampler_Hwi(void) {
  */
 void ButtonPoller_Clock(void) {
 	unsigned long presses = g_ulButtons;
-	g_ulAdcCount = g_ulAdcTime;
-	g_ulAdcTime = 0;
 
 	// button debounce
 	ButtonDebounce((~GPIO_PORTE_DATA_R & GPIO_PIN_0) << 4 // "up" button
@@ -306,11 +302,11 @@ void adcSetup(void) {
 	ADCSequenceStepConfigure(ADC0_BASE, 0, 0, ADC_CTL_CH0); // in the 0th step, sample channel 0
 	ADCSequenceStepConfigure(ADC0_BASE, 0, 1, ADC_CTL_CH0);
 	ADCSequenceStepConfigure(ADC0_BASE, 0, 2, ADC_CTL_CH0);
-	ADCSequenceStepConfigure(ADC0_BASE, 0, 3, ADC_CTL_CH0 | ADC_CTL_IE);
+	ADCSequenceStepConfigure(ADC0_BASE, 0, 3, ADC_CTL_CH0 | ADC_CTL_IE); // interrupt here
 	ADCSequenceStepConfigure(ADC0_BASE, 0, 4, ADC_CTL_CH0);
 	ADCSequenceStepConfigure(ADC0_BASE, 0, 5, ADC_CTL_CH0);
 	ADCSequenceStepConfigure(ADC0_BASE, 0, 6, ADC_CTL_CH0);
-	ADCSequenceStepConfigure(ADC0_BASE, 0, 7, ADC_CTL_CH0 | ADC_CTL_IE | ADC_CTL_END);
+	ADCSequenceStepConfigure(ADC0_BASE, 0, 7, ADC_CTL_CH0 | ADC_CTL_IE | ADC_CTL_END); // interrupt here
 	ADCIntEnable(ADC0_BASE, 0); // enable ADC interrupt from sequence 0
 	ADCSequenceEnable(ADC0_BASE, 0); // enable the sequence. it is now sampling
 }

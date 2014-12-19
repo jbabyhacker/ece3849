@@ -95,9 +95,6 @@ volatile int g_iTriggerPixel = 0;// The number of pixels from the center of the 
 unsigned int g_uiTimescale = 24;
 volatile unsigned long g_ulTriggerSearchFail = 0;
 
-volatile unsigned long g_ulAdcTime = 0;
-volatile unsigned long g_ulAdcCount = 0;
-
 Void adcSetup(Void);
 Void buttonSetup(Void);
 unsigned int triggerSearch(float triggerLevel, int direction, int samples);

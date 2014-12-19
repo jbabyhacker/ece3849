@@ -34,64 +34,57 @@ void main(void) {
 	}
 }
 
+/**
+ * Function: Timer0A_ISR
+ * ----------------------------
+ *   Timer to capture timer values to compute the clock cycles per period
+ *
+ *   returns: nothing
+ */
 void Timer0A_ISR() {
 	static long previous = 0;
-	// clear interrupt flag
-	//if (TIMER0_ICR_R & TIMER_MIS_CAEMIS == TIMER_MIS_CAEMIS){
-	//	TIMER0_ICR_R &= ~TIMER_ICR_CAECINT;
-	//}
 	TIMER0_ICR_R = TIMER_ICR_CAECINT;
-	//TIMER0_CTL_R = TIMER_CTL_TAEN;
 
 	if (g_ucPeriodInit) { //This should only execute on the first measurement
 		g_ucPeriodInit = 0;
 		previous = TIMER0_TAR_R; //Captured timer value
 	} else {
 		long recent = TIMER0_TAR_R; //Captured timer value
-		//g_ucPeriodIndex = BUFFER_WRAP(++g_ucPeriodIndex);
 		g_ulDiff = ((previous - recent) & 0xffff);
-		//g_pulPeriodMeasurements[g_ucPeriodIndex] = g_ulDiff
-		//		/ (g_ulSystemClock / 1000000);
 		periodSum += g_ulDiff;
-		//periodSum += g_ulDiff / (g_ulSystemClock / 1000000);
 		numSamples++;
 		previous = recent;
 	}
-
-	g_ulTimer0Counter++;
 }
-//
+
+/**
+ * Function: Timer1A_ISR
+ * ----------------------------
+ *   Timer to compute frequency.
+ *
+ *   returns: nothing
+ */
 void Timer1A_ISR() {
 	TIMER1_ICR_R = TIMER_ICR_TATOCINT;
-
-	g_ulTimer1Counter++;
 
 	int i;
 	int n = 0;
 	long freqCount = 0;
-	//Iterate through each period measured by the other timer ISR. Note, the shared variable is accessed
-	//repeatedly. This is not a shared data bug. g_ucPeriodIndex will only increment, and this loop
-	//need to keep up with the new values.  The loop will go no further than what is about to get written.
-//	for (i = g_ucFreqIndex; (i != BUFFER_WRAP(g_ucPeriodIndex + 1)); BUFFER_WRAP(++i)) {
-//		if (g_pulPeriodMeasurements[i]) {
-//			n++;
-//			freqCount += 1000000 / g_pulPeriodMeasurements[i];
-//		}
-//	}
+
 	float avgPeriod = periodSum / numSamples;
 	g_ulFrequencyMeasurement = ((1 / avgPeriod) * g_ulSystemClock) * 1000;
 	periodSum = 0;
 	numSamples = 0;
-	//g_ulFrequencyMeasurement = 1000000 / g_pulPeriodMeasurements[i];
 	NetworkTx(g_ulFrequencyMeasurement);
-
-//	g_ucFreqIndex = BUFFER_WRAP(g_ucPeriodIndex);
-//
-//	if (n) {
-//		g_ulFrequencyMeasurement = freqCount / n;
-//		NetworkTx(g_ulFrequencyMeasurement);
-//	}
 }
+
+/**
+ * Function: ComparatorSetup
+ * ----------------------------
+ *   Configures the hardware comparator to create a square wave
+ *
+ *   returns: nothing
+ */
 void ComparatorSetup() {
 	SysCtlPeripheralEnable(SYSCTL_PERIPH_COMP0);
 
@@ -110,6 +103,13 @@ void ComparatorSetup() {
 
 }
 
+/**
+ * Function: CaptureTimerSetup
+ * ----------------------------
+ *   Configures the timer to trigger on rising edge
+ *
+ *   returns: nothing
+ */
 void CaptureTimerSetup() {
 	SysCtlPeripheralEnable(SYSCTL_PERIPH_TIMER0);
 
@@ -128,6 +128,13 @@ void CaptureTimerSetup() {
 
 }
 
+/**
+ * Function: PeriodicTimerSetup
+ * ----------------------------
+ *   Configures the timer to run at 10 Hz
+ *
+ *   returns: nothing
+ */
 void PeriodicTimerSetup() {
 	IntMasterDisable();
 	// configure timer for buttons

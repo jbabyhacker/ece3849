@@ -42,7 +42,4 @@ volatile unsigned char g_ucFreqIndex = 0;
 volatile unsigned char g_ucPeriodInit = 1;
 volatile unsigned long g_ulDiff = 0;
 
-volatile unsigned long g_ulTimer1Counter = 0;
-volatile unsigned long g_ulTimer0Counter = 0;
-
 #endif /* MAIN_H_ */
